@@ -1,3 +1,6 @@
+from temporalio import activity
+
+
 class FieldsGenerator:
     def __init__(self, xml_dict):
         self.xml_dict = xml_dict
@@ -94,4 +97,5 @@ class FieldsGenerator:
             return result
 
         except Exception as e:
-            return str(e)
+            activity.logger.error(f"Error in generate_column_setting: {e}")
+            raise

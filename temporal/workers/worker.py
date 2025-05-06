@@ -4,11 +4,12 @@ from temporalio.worker import Worker
 from ..workflows.fe_workflow import FeCodeGenerationWorkflow
 from ..workflows.be_workflow import BeCodeGenerationWorkflow
 from ..workflows.xml_workflow import XMLGenerationWorkflow
+from ..activities import all_activities
 
 
 async def main():
     # Kết nối đến Temporal server
-    client = await Client.connect("localhost:7233")
+    client = await Client.connect("temporal:7233")
 
     # Khởi tạo worker và đăng ký workflows
     worker = Worker(
@@ -19,6 +20,7 @@ async def main():
             BeCodeGenerationWorkflow,
             XMLGenerationWorkflow,
         ],
+        activities=all_activities,
     )
     # Bắt đầu worker và lắng nghe các workflow
     print("Worker started...")

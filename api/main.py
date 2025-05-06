@@ -1,8 +1,10 @@
 # main.py
+import base64
+from io import BytesIO
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from temporalio.client import Client
-from api.workflow_status import set_status, get_status
+from .workflow_status import set_status, get_status
 from temporal.workflows.fe_workflow import FeCodeGenerationWorkflow
 from temporal.workflows.be_workflow import BeCodeGenerationWorkflow
 from temporal.workflows.xml_workflow import XMLGenerationWorkflow
@@ -10,33 +12,20 @@ import os
 import uuid
 from contextlib import asynccontextmanager
 from typing import List
-from api.utils import save_multiple_files
 
 
-OUTPUT_FOLDER = "./outputs"
 CONFIGURATION = {
     "FE": {"workflow": FeCodeGenerationWorkflow, "extension": "js"},
     "BE": {"workflow": BeCodeGenerationWorkflow, "extension": "py"},
     "XML": {"workflow": XMLGenerationWorkflow, "extension": "xml"},
 }
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-
 client: Client = None  # Global biến
-
-
-# Helper function: ghi nội dung vào file
-async def save_to_file(content: str, extension: str):
-    filename = f"{uuid.uuid4().hex}.{extension}"
-    file_path = os.path.join(OUTPUT_FOLDER, filename)
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(content)
-    return file_path
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global client
-    client = await Client.connect("localhost:7233")
+    client = await Client.connect("temporal:7233")
     print("✅ Temporal client connected.")
     yield
     await client.close()
@@ -53,12 +42,14 @@ async def check_status(workflow_id: str):
     return {"workflow_id": workflow_id, "status": status}
 
 
-async def generate(template: List[UploadFile] = File(...), module="FE"):
-    if not (module in CONFIGURATION.keys()):
+async def generate(template: List[UploadFile] = File(...), module: str = "FE"):
+    if module not in CONFIGURATION.keys():
         raise HTTPException(status_code=400, detail="Invalid module")
+
     if not template or len(template) == 0:
         raise HTTPException(status_code=400, detail="No files uploaded")
 
+    # Đọc nội dung các file upload
     template_contents = []
     for file in template:
         content = await file.read()
@@ -68,26 +59,33 @@ async def generate(template: List[UploadFile] = File(...), module="FE"):
                 "content": content,
             }
         )
+
+    # Tạo workflow ID duy nhất
     workflow_id = f"{module}-{uuid.uuid4().hex[:8]}"
     set_status(workflow_id, "processing")
 
+    # Gọi workflow
     try:
         result = await client.execute_workflow(
             CONFIGURATION[module]["workflow"].run,
             template_contents,
             id=workflow_id,
+            task_queue="default",
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error executing workflow: {str(e)}")
 
-    # result bây giờ là dict {filename: content}
-    zip_file_path = await save_multiple_files(result, CONFIGURATION[module]["extension"])  # save to file với định dạng JS
-    set_status(workflow_id, "done")
+    # Lấy dữ liệu zip từ kết quả
+    zip_b64 = result.get("zip_content")
+    if not zip_b64:
+        raise HTTPException(status_code=500, detail="Workflow completed but no zip_content returned")
 
-    return FileResponse(
-        zip_file_path,
+    # Trả về file zip
+    zip_bytes = base64.b64decode(zip_b64)
+    return StreamingResponse(
+        content=BytesIO(zip_bytes),
         media_type="application/zip",
-        filename=os.path.basename(zip_file_path),
+        headers={"Content-Disposition": 'attachment; filename="result.zip"'},
     )
 
 

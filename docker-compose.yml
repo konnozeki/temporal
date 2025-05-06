@@ -44,16 +44,10 @@ services:
       - POSTGRES_USER=temporal
       - POSTGRES_PWD=temporal
       - POSTGRES_SEEDS=postgresql
-      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
-      - ENABLE_ES=true
-      - ES_SEEDS=elasticsearch
-      - ES_VERSION=v7
     networks:
       - temporal-network
     ports:
       - 7233:7233
-    volumes:
-      - ./dynamicconfig:/etc/temporal/config/dynamicconfig
 
   temporal-admin-tools:
     container_name: temporal-admin-tools
@@ -96,6 +90,22 @@ services:
       - temporal-network
     volumes:
       - .:/app
+
+  worker:
+    container_name: temporal-worker
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+    networks:
+      - temporal-network
+    volumes:
+      - .:/app
+    command: ["python", "-m", "temporal.workers.worker"]
+
 
 networks:
   temporal-network:

@@ -2,8 +2,9 @@ import re
 
 
 class I18nGenerator:
-    def __init__(self, xml_dict):
+    def __init__(self, xml_dict, prefix=""):
         self.xml_dict = xml_dict
+        self.prefix = prefix
 
     def generate(self):
         try:
