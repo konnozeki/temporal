@@ -9,16 +9,20 @@ from ..activities.fe_generator import generate_column_setting, generate_i18n, ge
 
 @workflow.defn
 class FeCodeGenerationWorkflow:
-    def __init__(self):
+    def __init__(self, **kw):
         self.configuration_import_string = ""
-        self.configuration_declare_string = "export const config = {"
+        self.system_code = kw.get("system_code", "SYS")
+        self.sub_system_code = kw.get("sub_system_code", "SUB")
+        self.configuration_declare_string = f"""export const config = {{
+        SYSTEM_CODE: "{self.system_code}",
+        SUB_SYSTEM_CODE: "{self.sub_system_code}",
+        """
         self.navigation_string = ""
 
     @workflow.run
     async def run(self, template_contents):
         # Tạo buffer zip
         zip_buffer = io.BytesIO()
-
         try:
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 # Lặp qua từng model trong template_contents
