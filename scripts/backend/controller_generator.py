@@ -219,7 +219,7 @@ class ControllerGenerator:
                 if field is None:
                     continue
 
-                field_name = Field(field).getName()
+                field_name = Field(field).get_name()
                 self.field_list.append(field_name)
 
                 if field.get("unique", "").strip().lower() in ["1", "t", "c", "đ"]:
@@ -287,7 +287,7 @@ class ControllerGenerator:
                 name = field.get("name", "").strip()
                 if not name or name == "id":
                     continue
-                rule = Field(field).generateRules(self.module_name)
+                rule = Field(field).generate_rules(self.module_name)
                 if rule:
                     rules.append(rule)
             return ", \n".join(rules)
@@ -304,7 +304,7 @@ class ControllerGenerator:
                 name = field.get("name", "").strip()
                 if name == "id":
                     continue
-                msg = Field(field).generateMessages()
+                msg = Field(field).generate_messages()
                 if msg:
                     messages.append(msg)
             return ", \n".join(messages)
@@ -314,12 +314,12 @@ class ControllerGenerator:
 
     def generate_linked_list(self):
         try:
-            tables = [Field(f).generateLinkedTable() for f in self.field_data if f]
+            tables = [Field(f).generate_linked_table() for f in self.field_data if f]
             tables = [t for t in tables if t]
             return f"'{', '.join(tables)}'" if tables else ""
         except Exception as e:
             print("Lỗi tạo linked list: " + str(e))
-            return None
+            return ""
 
     def generate_sort_field(self):
         return (
@@ -348,7 +348,7 @@ from ..models.{self.module_name}_model import {self.class_name}Alias2Fields, {se
 from ..helper.serializer import Serializer
 from ..helper.normalizer import Normalizer
 
-class {self.class_name}API(Nagaco_Controller):
+class {self.class_name}_API(Nagaco_Controller):
     def __init__(self):
         Nagaco_Controller.__init__(self)
         self.modelName = "{self.module_name}"        
@@ -358,13 +358,13 @@ class {self.class_name}API(Nagaco_Controller):
         self.fieldList = ["{'", "'.join(self.field_list)}"]
         self.numberFields = {self.field_number_list}
         self.fileList = {self.file_list}
-        self.foreignFiels = ['{linked_fields_str}']
+        self.foreignFields = ['{linked_fields_str}']
         self.validator = Validator(
             rules={{
-{self.generate_rules()}
+                {self.generate_rules()}
             }},
             messages={{
-{self.generate_messages()}
+                {self.generate_messages()}
             }}
         )
 

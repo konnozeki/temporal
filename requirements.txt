@@ -3,3 +3,7 @@ fastapi
 temporalio
 xmltodict
 python-multipart
+sqlalchemy
+GitPython
+pandas
+asyncpg

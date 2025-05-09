@@ -79,7 +79,7 @@ class {self.class_name}_Router(http.Controller):
         self.MODULE_CODE = '{code}'
         self.AUTH_MODE = me.AUTH_MODE
         self.ACTION_CODE = f"{{self.SYS_CODE}}_{{self.SUB_SYS_CODE}}-{{self.MODULE_CODE}}"
-        self.ctrl = {self.class_name}API()
+        self.ctrl = {self.class_name}_API()
 
     @http.route(['/api/{self.model_name}'], type='http', auth="none", methods=['GET'], sitemap=me.sitemap, cors=me.cors, csrf=me.csrf)
     def get_all(self, **kw):
