@@ -1,17 +1,14 @@
 import base64
 from io import BytesIO
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import UploadFile, HTTPException
 from fastapi.responses import StreamingResponse
 from temporalio.client import Client
 from ..workflow_status import set_status, get_status
 from temporal.workflows.fe_workflow import FeCodeGenerationWorkflow
 from temporal.workflows.be_workflow import BeCodeGenerationWorkflow
 from temporal.workflows.xml_workflow import XMLGenerationWorkflow
-import os
 import uuid
-from contextlib import asynccontextmanager
 from typing import List
-import subprocess
 
 CONFIGURATION = {
     "FE": {"workflow": FeCodeGenerationWorkflow, "extension": "js"},

@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 # Đường dẫn đến PostgreSQL
-DATABASE_URL = "postgresql+asyncpg://postgres:password@localhost:5432/mydb"
+DATABASE_URL = "postgresql+asyncpg://temporal:temporal@postgresql:5432/postgres"
 
 # Engine bất đồng bộ
 engine = create_async_engine(DATABASE_URL, echo=True)

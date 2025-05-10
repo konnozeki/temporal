@@ -104,7 +104,7 @@ services:
       - temporal-network
     volumes:
       - .:/app
-    command: ["python", "-m", "temporal.workers.worker"]
+    command: ["sh", "-c", "PYTHONPATH=/app python -m api.migrate && PYTHONPATH=/app python -m temporal.workers.worker"]
 
 
 networks:

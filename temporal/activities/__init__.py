@@ -1,5 +1,6 @@
 from .fe_generator import *
 from .be_generator import *
+from .xml_generator import *
 
 fe_activities = [
     generate_column_setting,
@@ -8,7 +9,15 @@ fe_activities = [
     generate_configuration,
     generate_i18n,
 ]
-be_activities = [generate_model, generate_controller, generate_route, generate_view]
+be_activities = [
+    generate_model,
+    generate_controller,
+    generate_route,
+    generate_view,
+]
+xml_activities = [
+    generate_xml,
+]
 
 # Flatten everything
-all_activities = [*fe_activities, *be_activities]
+all_activities = [*fe_activities, *be_activities, *xml_activities]

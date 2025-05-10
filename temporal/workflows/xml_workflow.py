@@ -1,16 +1,52 @@
-# temporal/workflows/xml_generator.py
 from temporalio import workflow
+from temporalio.common import RetryPolicy
 
-# from temporal.activities.xml_generator import excel_to_xml
+from ..activities.xml_generator import generate_xml
+import base64
+import zipfile
+import io
+from datetime import timedelta
 import pandas as pd
 
 
 @workflow.defn
 class XMLGenerationWorkflow:
-    def __init__(self):
-        pass
 
     @workflow.run
     async def run(self, template_contents):
+        # Tạo buffer zip
+        zip_buffer = io.BytesIO()
+        try:
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for file in template_contents:
+                    content = bytes(file["content"])
+                    # Kiểm tra xem content có phải là byte string không
+                    if isinstance(content, bytes):
+                        content = pd.read_csv(io.BytesIO(content), encoding="unicode_escape")
+                    else:
+                        # Nếu không phải byte string, không thể giải mã
+                        workflow.logger.error(f"Invalid content type for {file['filename']}")
+                        raise ValueError(f"Content of {file['filename']} is not a valid byte string", type(file["content"]))
+                    # Gọi activity để xử lý file XML
+                    xml_dict = await workflow.execute_activity(
+                        generate_xml,
+                        content,
+                        start_to_close_timeout=timedelta(seconds=30),
+                    )
+                    for model_name, xml_string in xml_dict.items():
+                        # Tạo tên file cho các tệp cần nén
+                        zip_file.writestr(f"xml/{model_name}.xml", xml_string)
 
-        pass
+            # Lấy nội dung zip và trả về kết quả
+            zip_buffer.seek(0)
+            zip_content = zip_buffer.getvalue()
+            zip_b64 = base64.b64encode(zip_content).decode("utf-8")
+
+            # Logging thông tin thành công
+            workflow.logger.info("Workflow completed successfully")
+
+            return {"zip_content": zip_b64}
+
+        except Exception as e:
+            workflow.logger.error(f"Error in workflow execution: {e}")
+            raise

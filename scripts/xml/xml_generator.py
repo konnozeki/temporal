@@ -22,10 +22,8 @@ SKIP_FIELDS = {"created_date", "write_date", "deleted_date", "example", "active"
 
 
 class XmlGenerator:
-    def __init__(self, excel_file_path: str, prefix: str = "hrm_att"):
-        self.excel_file_path = excel_file_path
-        self.prefix = prefix
-        self.excel = pd.ExcelFile(excel_file_path)
+    def __init__(self, excel_file):
+        self.excel = pd.ExcelFile(excel_file)
 
     def _dataframe_to_xml(self, df: pd.DataFrame, model: str) -> str:
         root = ET.Element("root")
@@ -80,7 +78,8 @@ class XmlGenerator:
             )
 
             clean_name = re.sub(r"[0-9]+\.?\s*", "", sheet_name).lower()
-            model_name = f"{self.prefix}_{re.sub('.xlsx', '', clean_name)}"
+            # Tạm thời để tên là model nhưng về sau phải đổi từ request.
+            model_name = f"model_{re.sub('.xlsx', '', clean_name)}"
             xml_string = self._dataframe_to_xml(df, model=model_name)
             result[model_name] = xml_string
 
