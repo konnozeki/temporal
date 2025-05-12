@@ -7,7 +7,7 @@ import io
 
 
 @activity.defn
-async def generate_xml(file_bytes: bytes, **kw) -> dict:
+async def generate_xml(file_bytes: bytes, kw) -> dict:
     excel = pd.ExcelFile(io.BytesIO(file_bytes), engine="openpyxl")
     generator = XmlGenerator(excel)
-    return generator.generate_xml()
+    return generator.generate_xml(kw)

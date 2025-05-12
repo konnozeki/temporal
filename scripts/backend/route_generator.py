@@ -17,6 +17,8 @@ class RouteGenerator:
             self.xml_dict = xml_dict["root"]["fields"]
             self.model_name = xml_dict["root"]["model"]
             self.class_name = self.model_name.replace("_", " ").title().replace(" ", "_")
+            self.sub_system_code = xml_dict["root"]["sub_system_code"]
+            self.module_code = xml_dict["root"]["module_code"]
 
             # Lấy danh sách các bảng khóa ngoại
             fk_list = []
@@ -53,7 +55,7 @@ class RouteGenerator:
 """
         return route_str
 
-    def generate_route(self, system="", code=""):
+    def generate_route(self):
         """
         Phương thức này cho phép tạo các route cho controller theo các thông tin trong self.xmlDict và self.model_name.
         - Các tham số: Không có
@@ -75,8 +77,8 @@ from ..middleware.authentication import Authentication
 class {self.class_name}_Router(http.Controller):
     def __init__(self):
         self.SYS_CODE = me.SYS_CODE
-        self.SUB_SYS_CODE = '{system}'
-        self.MODULE_CODE = '{code}'
+        self.SUB_SYS_CODE = '{self.sub_system_code}'
+        self.MODULE_CODE = '{self.module_code}'
         self.AUTH_MODE = me.AUTH_MODE
         self.ACTION_CODE = f"{{self.SYS_CODE}}_{{self.SUB_SYS_CODE}}-{{self.MODULE_CODE}}"
         self.ctrl = {self.class_name}_API()

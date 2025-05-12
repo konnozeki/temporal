@@ -19,8 +19,11 @@ async def generate_be_code(be_templates: List[UploadFile] = File(...), client: C
 
 
 @router.post("/generate_xml/")
-async def generate_xml(excel_files: List[UploadFile] = File(...), client: Client = Depends(get_client)):
-    return await generate(excel_files, "XML", client=client)
+async def generate_xml(excel_files: List[UploadFile] = File(...), client: Client = Depends(get_client), request: Request = None):
+    form = await request.form()
+    kwargs = dict(form)
+    kwargs = {k: v for k, v in kwargs.items() if k not in ["excel_files", "client"]}
+    return await generate(excel_files, "XML", client=client, kw=kwargs)
 
 
 @router.get("/status/{workflow_id}")

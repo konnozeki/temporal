@@ -20,7 +20,7 @@ class FeCodeGenerationWorkflow:
         self.navigation_string = ""
 
     @workflow.run
-    async def run(self, template_contents):
+    async def run(self, template_contents, kw={}):
         # Tạo buffer zip
         zip_buffer = io.BytesIO()
         try:

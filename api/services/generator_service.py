@@ -22,7 +22,7 @@ async def check_status(workflow_id: str, client: Client):
     return {"workflow_id": workflow_id, "status": status}
 
 
-async def generate(template: List[UploadFile], module: str = "FE", client: Client = None, **kw):
+async def generate(template: List[UploadFile], module: str = "FE", client: Client = None, kw={}):
     if module not in CONFIGURATION.keys():
         raise HTTPException(status_code=400, detail="Invalid module")
 
@@ -48,7 +48,7 @@ async def generate(template: List[UploadFile], module: str = "FE", client: Clien
     try:
         result = await client.execute_workflow(
             CONFIGURATION[module]["workflow"].run,
-            template_contents,
+            args=[template_contents, kw],
             id=workflow_id,
             task_queue="default",
         )

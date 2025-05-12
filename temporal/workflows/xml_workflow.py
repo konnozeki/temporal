@@ -6,14 +6,13 @@ import base64
 import zipfile
 import io
 from datetime import timedelta
-import pandas as pd
 
 
 @workflow.defn(sandboxed=False)
 class XMLGenerationWorkflow:
 
     @workflow.run
-    async def run(self, template_contents):
+    async def run(self, template_contents, kw={}):
         # Tạo buffer zip
         zip_buffer = io.BytesIO()
         try:
@@ -25,7 +24,7 @@ class XMLGenerationWorkflow:
 
                     xml_dict = await workflow.execute_activity(
                         generate_xml,
-                        content,
+                        args=[content, kw],
                         start_to_close_timeout=timedelta(seconds=30),
                     )
                     for model_name, xml_string in xml_dict.items():
