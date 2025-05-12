@@ -1,5 +1,5 @@
 # generator_route.py
-from fastapi import APIRouter, File, UploadFile, Depends
+from fastapi import APIRouter, File, UploadFile, Depends, Request
 from typing import List
 from ..services.generator_service import generate, check_status
 from ..utils import get_client

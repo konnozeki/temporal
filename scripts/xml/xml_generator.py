@@ -23,7 +23,7 @@ SKIP_FIELDS = {"created_date", "write_date", "deleted_date", "example", "active"
 
 class XmlGenerator:
     def __init__(self, excel_file):
-        self.excel = pd.ExcelFile(excel_file)
+        self.excel = excel_file
 
     def _dataframe_to_xml(self, df: pd.DataFrame, model: str) -> str:
         root = ET.Element("root")

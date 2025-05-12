@@ -9,7 +9,7 @@ from datetime import timedelta
 import pandas as pd
 
 
-@workflow.defn
+@workflow.defn(sandboxed=False)
 class XMLGenerationWorkflow:
 
     @workflow.run
@@ -20,14 +20,9 @@ class XMLGenerationWorkflow:
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 for file in template_contents:
                     content = bytes(file["content"])
-                    # Kiểm tra xem content có phải là byte string không
-                    if isinstance(content, bytes):
-                        content = pd.read_csv(io.BytesIO(content), encoding="unicode_escape")
-                    else:
-                        # Nếu không phải byte string, không thể giải mã
-                        workflow.logger.error(f"Invalid content type for {file['filename']}")
-                        raise ValueError(f"Content of {file['filename']} is not a valid byte string", type(file["content"]))
-                    # Gọi activity để xử lý file XML
+                    if not isinstance(content, bytes):
+                        raise ValueError("File content must be bytes")
+
                     xml_dict = await workflow.execute_activity(
                         generate_xml,
                         content,

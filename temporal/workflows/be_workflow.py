@@ -7,7 +7,7 @@ from datetime import timedelta
 from ..activities.be_generator import *
 
 
-@workflow.defn
+@workflow.defn(sandboxed=False)
 class BeCodeGenerationWorkflow:
     def __init__(self):
         self.init_route_string = ""

@@ -7,7 +7,7 @@ from datetime import timedelta
 from ..activities.fe_generator import generate_column_setting, generate_i18n, generate_menu, generate_service, generate_configuration
 
 
-@workflow.defn
+@workflow.defn(sandboxed=False)
 class FeCodeGenerationWorkflow:
     def __init__(self, **kw):
         self.configuration_import_string = ""

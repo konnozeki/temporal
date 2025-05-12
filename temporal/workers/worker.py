@@ -1,6 +1,6 @@
 import asyncio
 from temporalio.client import Client
-from temporalio.worker import Worker
+from temporalio.worker import Worker, WorkflowRunner
 from ..workflows.fe_workflow import FeCodeGenerationWorkflow
 from ..workflows.be_workflow import BeCodeGenerationWorkflow
 from ..workflows.xml_workflow import XMLGenerationWorkflow
