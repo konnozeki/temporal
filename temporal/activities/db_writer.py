@@ -1,40 +1,36 @@
 from temporalio import activity
-from db.session import get_sync_session
+from db.session import async_session
 from db.models import XmlFile, XmlFileVersion
 from datetime import datetime
+from pathlib import Path
+from sqlalchemy import select
 
 
 @activity.defn
-async def save_xml_to_db(filename: str, xml_content: str, system: str, sub_system: str) -> int:
-    """
-    Ghi nội dung XML vào cơ sở dữ liệu.
-    """
-    session = get_sync_session()
+async def save_generated_xml(xml_dict: dict, module: str, version: str = "v1", created_by: str = "system"):
+    base_path = Path("xml_store") / module / version
+    base_path.mkdir(parents=True, exist_ok=True)
+    async with async_session() as session:
+        for model_name, xml_string in xml_dict.items():
+            filename = f"{model_name}.xml"
+            file_path = base_path / filename
 
-    try:
-        xml_file = XmlFile(
-            filename=filename,
-            system=system,
-            sub_system=sub_system,
-            status="processing",
-            version="v1",
-            created_at=datetime.utcnow(),
-        )
-        session.add(xml_file)
-        session.flush()
+            # 1. Lưu file XML
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(xml_string)
 
-        version = XmlFileVersion(
-            xml_file_id=xml_file.id,
-            version="v1",
-            content=xml_content,
-            approved=False,
-        )
-        session.add(version)
-        session.commit()
+            # 2. Tìm hoặc tạo XmlFile
+            stmt = select(XmlFile).where(XmlFile.module == module, XmlFile.filename == filename)
+            result = await session.execute(stmt)
+            xml_file = result.scalar_one_or_none()
 
-        return xml_file.id
-    except Exception as e:
-        session.rollback()
-        raise e
-    finally:
-        session.close()
+            if not xml_file:
+                xml_file = XmlFile(filename=filename, module=module, version=version, status="processing")
+                session.add(xml_file)
+                await session.commit()
+                await session.refresh(xml_file)
+
+            # 3. Thêm phiên bản
+            version_record = XmlFileVersion(xml_file_id=xml_file.id, version=version, content=xml_string, approved=False)
+            session.add(version_record)
+            await session.commit()

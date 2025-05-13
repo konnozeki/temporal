@@ -6,6 +6,12 @@ import base64
 import zipfile
 import io
 from datetime import timedelta
+from db.session import async_session  # hoặc wherever bạn khai DB session
+from db.models import XmlFile, XmlFileVersion
+import os
+from pathlib import Path
+from sqlalchemy import select
+from ..activities.db_writer import save_generated_xml
 
 
 @workflow.defn(sandboxed=False)
@@ -26,6 +32,12 @@ class XMLGenerationWorkflow:
                         generate_xml,
                         args=[content, kw],
                         start_to_close_timeout=timedelta(seconds=30),
+                    )
+                    # Đoạn này đang test một chút.
+                    await workflow.execute_activity(
+                        save_generated_xml,
+                        args=[xml_dict, kw.get("module", "unknown"), kw.get("version", "v1"), kw.get("user", "system")],
+                        start_to_close_timeout=timedelta(seconds=60),
                     )
                     for model_name, xml_string in xml_dict.items():
                         # Tạo tên file cho các tệp cần nén

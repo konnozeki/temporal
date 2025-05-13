@@ -1,6 +1,7 @@
 from .fe_generator import *
 from .be_generator import *
 from .xml_generator import *
+from .db_writer import *
 
 fe_activities = [
     generate_column_setting,
@@ -19,5 +20,9 @@ xml_activities = [
     generate_xml,
 ]
 
+db_writer_activities = [
+    save_generated_xml,
+]
+
 # Flatten everything
-all_activities = [*fe_activities, *be_activities, *xml_activities]
+all_activities = [*fe_activities, *be_activities, *xml_activities, *db_writer_activities]
