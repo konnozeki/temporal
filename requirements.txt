@@ -8,3 +8,4 @@ GitPython
 pandas
 asyncpg
 openpyxl
+python-socketio

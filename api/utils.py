@@ -1,4 +1,7 @@
 from temporalio.client import Client
+import socketio
+
+sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 
 client_instance: Client = None
 

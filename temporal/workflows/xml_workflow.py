@@ -7,7 +7,6 @@ import zipfile
 import io
 from datetime import timedelta
 from db.session import async_session  # hoặc wherever bạn khai DB session
-from db.models import XmlFile, XmlFileVersion
 import os
 from pathlib import Path
 from sqlalchemy import select
@@ -33,15 +32,15 @@ class XMLGenerationWorkflow:
                         args=[content, kw],
                         start_to_close_timeout=timedelta(seconds=30),
                     )
-                    # Đoạn này đang test một chút.
+
                     await workflow.execute_activity(
                         save_generated_xml,
-                        args=[xml_dict, kw.get("module", "unknown"), kw.get("version", "v1"), kw.get("user", "system")],
+                        args=[xml_dict, kw.get("module", "categories")],
                         start_to_close_timeout=timedelta(seconds=60),
                     )
                     for model_name, xml_string in xml_dict.items():
                         # Tạo tên file cho các tệp cần nén
-                        zip_file.writestr(f"xml/{model_name}.xml", xml_string)
+                        zip_file.writestr(f"xml/{model_name}_schema.xml", xml_string)
 
             # Lấy nội dung zip và trả về kết quả
             zip_buffer.seek(0)

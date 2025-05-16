@@ -92,7 +92,6 @@ class XmlGenerator:
 
     def generate_xml(self, kw: dict) -> dict:
         result = {}
-        print("kw", kw)
         for sheet_name in self.excel.sheet_names:
             if "Sheet" in sheet_name:
                 continue
@@ -104,7 +103,7 @@ class XmlGenerator:
                 inplace=True,
             )
             prefix = kw.get("system_code", "SYS").lower()
-            clean_name = re.sub(r"[0-9]+\.?\s*", "", sheet_name).lower()
+            clean_name = re.sub(r"^[0-9]+\.?\s*", "", sheet_name).lower()
             # Tạm thời để tên là model nhưng về sau phải đổi từ request.
             model_name = f"{prefix}_{re.sub('.xlsx', '', clean_name)}"
             xml_string = self._dataframe_to_xml(df, model=model_name, kw=kw)

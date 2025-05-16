@@ -1,36 +1,42 @@
 from temporalio import activity
 from db.session import async_session
-from db.models import XmlFile, XmlFileVersion
-from datetime import datetime
-from pathlib import Path
+from db.models import XmlFile
 from sqlalchemy import select
+import xmltodict
 
 
 @activity.defn
-async def save_generated_xml(xml_dict: dict, module: str, version: str = "v1", created_by: str = "system"):
-    base_path = Path("xml_store") / module / version
-    base_path.mkdir(parents=True, exist_ok=True)
+async def save_generated_xml(xml_dict: dict, category: str):
     async with async_session() as session:
         for model_name, xml_string in xml_dict.items():
-            filename = f"{model_name}.xml"
-            file_path = base_path / filename
+            dict_data = xmltodict.parse(xml_string)
+            system_code = dict_data["root"]["system_code"]
+            sub_system_code = dict_data["root"]["sub_system_code"]
+            module = dict_data["root"]["module_code"]
+            filename = f"{model_name}_schema.xml"
 
-            # 1. Lưu file XML
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(xml_string)
-
-            # 2. Tìm hoặc tạo XmlFile
+            # 1. Tìm hoặc tạo XmlFile
             stmt = select(XmlFile).where(XmlFile.module == module, XmlFile.filename == filename)
             result = await session.execute(stmt)
             xml_file = result.scalar_one_or_none()
 
             if not xml_file:
-                xml_file = XmlFile(filename=filename, module=module, version=version, status="processing")
+                # Thêm mới nếu chưa tồn tại
+                xml_file = XmlFile(
+                    filename=filename,
+                    system=system_code,
+                    sub_system=sub_system_code,
+                    module=module,
+                    category=category,
+                    content=xml_string,
+                )
                 session.add(xml_file)
-                await session.commit()
-                await session.refresh(xml_file)
+            else:
+                # Cập nhật nếu đã có
+                xml_file.system = system_code
+                xml_file.sub_system = sub_system_code
+                xml_file.category = category
+                xml_file.content = xml_string
 
-            # 3. Thêm phiên bản
-            version_record = XmlFileVersion(xml_file_id=xml_file.id, version=version, content=xml_string, approved=False)
-            session.add(version_record)
             await session.commit()
+            await session.refresh(xml_file)
