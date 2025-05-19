@@ -70,7 +70,7 @@ class RouteGenerator:
         str_route = f"""
 from odoo import http
 from ..config import config as me
-from ..controllers.{self.model_name}_controller import {self.class_name}API
+from ..controllers.{self.model_name}_controller import {self.class_name}_API
 from ..middleware.authentication import Authentication
 
 

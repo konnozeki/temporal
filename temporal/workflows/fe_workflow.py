@@ -5,6 +5,7 @@ import xmltodict
 from temporalio import workflow
 from datetime import timedelta
 from ..activities.fe_generator import generate_column_setting, generate_i18n, generate_menu, generate_service, generate_configuration
+import asyncio
 
 
 @workflow.defn(sandboxed=False)
@@ -21,6 +22,8 @@ class FeCodeGenerationWorkflow:
 
     @workflow.run
     async def run(self, template_contents, kw={}):
+        await asyncio.sleep(10)
+
         # Tạo buffer zip
         zip_buffer = io.BytesIO()
         try:

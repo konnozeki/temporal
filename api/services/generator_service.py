@@ -13,6 +13,7 @@ from ..utils import sio
 import asyncio
 from temporalio.client import WorkflowHandle
 from ..utils import get_client
+import json
 
 CONFIGURATION = {
     "FE": {"workflow": FeCodeGenerationWorkflow, "extension": "js"},
@@ -37,6 +38,9 @@ async def workflow_status(sid, data):
                     "workflow_id": workflow_id,
                     "status": info.status.name,
                     "history_length": info.history_length,
+                    "close_time": info.close_time.isoformat() if info.close_time else None,
+                    "start_time": info.start_time.isoformat() if info.start_time else None,
+                    "workflow_type": info.workflow_type,
                 },
                 to=sid,
             )
@@ -50,7 +54,7 @@ async def workflow_status(sid, data):
         await sio.emit("workflow_status_error", {"error": str(e)}, to=sid)
 
 
-async def start_raw_generate(template: List[Dict[str, str]], module: str = "FE", client: Client = None, kw={}):
+async def start_raw_generate(template: List[dict], module: str = "FE", client: Client = None, kw={}):
     if kw is None:
         kw = {}
 
@@ -82,7 +86,12 @@ async def start_raw_generate(template: List[Dict[str, str]], module: str = "FE",
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Workflow failed to start: {str(e)}")
 
-    return {"workflow_id": workflow_id}
+    return {
+        "code": 200,
+        "status": "success",
+        "message": "Tạo workflow thành công",
+        "data": {"workflow_id": workflow_id},
+    }
 
 
 async def start_generate(template: List[UploadFile], module: str = "FE", client: Client = None, kw={}):
@@ -111,7 +120,12 @@ async def start_generate(template: List[UploadFile], module: str = "FE", client:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Workflow failed to start: {str(e)}")
 
-    return {"workflow_id": workflow_id}
+    return {
+        "code": 200,
+        "status": "success",
+        "message": "Tạo workflow thành công",
+        "data": {"workflow_id": workflow_id},
+    }
 
 
 async def download_result(workflow_id: str, client: Client):

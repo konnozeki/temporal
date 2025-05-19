@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 from sqlalchemy import select
 from ..activities.db_writer import save_generated_xml
+import asyncio
 
 
 @workflow.defn(sandboxed=False)
@@ -18,6 +19,7 @@ class XMLGenerationWorkflow:
 
     @workflow.run
     async def run(self, template_contents, kw={}):
+        await asyncio.sleep(10)
         # Tạo buffer zip
         zip_buffer = io.BytesIO()
         try:

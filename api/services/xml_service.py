@@ -58,21 +58,23 @@ async def handle_uploaded_xml_files(files, session: AsyncSession):
 
 
 async def list_xml_files(session: AsyncSession):
-    stmt = select(XmlFile)
-
-    stmt = stmt.order_by(XmlFile.created_at.desc())
+    # Chỉ select các cột cần
+    stmt = select(XmlFile.id, XmlFile.filename).order_by(XmlFile.created_at.desc())
 
     result = await session.execute(stmt)
-    files = result.scalars().all()
+    records = result.all()
 
-    return success_response("Danh sách file XML", files)
+    # Chuyển thành list[dict] nếu muốn trả JSON
+    files = [{"id": row.id, "filename": row.filename} for row in records]
+
+    return success_response(data=files)
 
 
 async def list_xml_files_by_page(session: AsyncSession, page: int = 1, size: int = 10):
     page = int(page)
     size = int(size)
     if page < 1 or size < 1:
-        return error_response("Tham số truyền bào không hợp lệ")
+        return error_response("Tham số truyền vào không hợp lệ")
 
     # Chuẩn bị điều kiện lọc
     filters = []

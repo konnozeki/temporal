@@ -279,7 +279,7 @@ class ModelGenerator:
                 # Handle default
                 if not foreign_key and default.upper() != "NULL":
                     if default:
-                        default_str = f"default={default}" if field_type in self.number_type else f"default='{default}'"
+                        default_str = f"default={default}" if field_type in self.number_types else f"default='{default}'"
                         args.append(default_str)
                     elif field_type not in self.allow_null:
                         args.append("default=''")
@@ -323,7 +323,7 @@ class ModelGenerator:
 
         except Exception as e:
             print("Đã xảy ra lỗi khi tạo model:", str(e))
-            return ""
+            return str(e)
 
     def create_can_delete(self):
         str_can_delete = f"""
@@ -364,14 +364,14 @@ class ModelGenerator:
         """
 
         str_return = f"""
-    from enum import Enum
-    from odoo import models, fields
-    from ..config.config import *
+from enum import Enum
+from odoo import models, fields
+from ..config.config import *
 
-    {self.create_column_alias()}
-    {self.create_column_label()}
-    {self.create_model()}
-    {self.create_constraints()}
-    {self.create_can_delete()}
+{self.create_column_alias()}
+{self.create_column_label()}
+{self.create_model()}
+{self.create_constraints()}
+{self.create_can_delete()}
     """
         return str_return

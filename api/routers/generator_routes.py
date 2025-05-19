@@ -1,5 +1,5 @@
 # generator_route.py
-from fastapi import APIRouter, File, UploadFile, Depends, Request, WebSocketDisconnect, WebSocket
+from fastapi import APIRouter, File, UploadFile, Depends, Request, Body
 from typing import List, Dict
 from ..services.generator_service import start_generate, download_result, get_all_workflows, get_workflows_by_page, start_raw_generate
 from ..utils import get_client
@@ -9,23 +9,23 @@ router = APIRouter()
 
 
 @router.post("/generate_fe/")
-async def generate_fe(fe_templates: List[UploadFile] = File(...), client: Client = Depends(get_client)):
-    return await start_generate(fe_templates, "FE", client=client)
+async def generate_fe(templates: List[UploadFile] = File(...), client: Client = Depends(get_client)):
+    return await start_generate(templates, "FE", client=client)
 
 
 @router.post("/generate_be/")
-async def generate_be(be_templates: List[UploadFile] = File(...), client: Client = Depends(get_client)):
-    return await start_generate(be_templates, "BE", client=client)
+async def generate_be(templates: List[UploadFile] = File(...), client: Client = Depends(get_client)):
+    return await start_generate(templates, "BE", client=client)
 
 
 @router.post("/generate_raw_fe/")
-async def generate_raw_fe(fe_templates: List[Dict[str, str]] = File(...), client: Client = Depends(get_client)):
-    return await start_raw_generate(fe_templates, "FE", client=client)
+async def generate_raw_fe(templates: List[dict] = Body(...), client: Client = Depends(get_client)):
+    return await start_raw_generate(templates, "FE", client=client)
 
 
 @router.post("/generate_raw_be/")
-async def generate_raw_be(be_templates: List[Dict[str, str]] = File(...), client: Client = Depends(get_client)):
-    return await start_raw_generate(be_templates, "BE", client=client)
+async def generate_raw_be(templates: List[dict] = Body(...), client: Client = Depends(get_client)):
+    return await start_raw_generate(templates, "BE", client=client)
 
 
 @router.post("/generate_xml/")
