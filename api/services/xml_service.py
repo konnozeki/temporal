@@ -5,6 +5,8 @@ from db.models import XmlFile
 from sqlalchemy import func, delete
 from typing import Optional
 import xml.etree.ElementTree as ET
+import xmltodict
+from fastapi import UploadFile, File
 
 
 async def extract_system_info(xml_content: str):
@@ -166,10 +168,67 @@ async def update_xml_file(id: int, request: dict = {}, session: AsyncSession = N
 
 async def create_xml_file(request: dict = {}, session: AsyncSession = None):
     try:
+        print(request, "request")
         xml_file = XmlFile(**request)
         session.add(xml_file)
         await session.commit()
         await session.refresh(xml_file)
-        return success_response("Tạo mới thành công", request)
+        return success_response("Tạo bản ghi thành công", request)
     except Exception as e:
-        return error_response(f"Tạo mới thất bại: {str(e)}")
+        return error_response(f"Tạo bản ghi thất bại: {str(e)}")
+
+
+def extract_metadata(xml_dict: dict) -> dict:
+    if "root" not in xml_dict:
+        xml_dict = {"root": xml_dict}
+    root = xml_dict["root"]
+    return {"system": root.get("system_code"), "sub_system": root.get("sub_system_code"), "module": root.get("module_code"), "category": root.get("module")}
+
+
+async def import_file(files: list[UploadFile] = File(...), session: AsyncSession = None):
+    results = []
+
+    for file in files:
+        if not file.filename.endswith(".xml"):
+            results.append({"filename": file.filename, "status": "skipped", "reason": "Not an XML file"})
+            continue
+
+        try:
+            content_bytes = await file.read()
+            content_str = content_bytes.decode("utf-8")
+
+            xml_dict = xmltodict.parse(content_str)
+            metadata = extract_metadata(xml_dict)
+
+            # Truy vấn async
+            stmt = select(XmlFile).where(XmlFile.filename == file.filename).limit(1)
+            result = await session.execute(stmt)
+            existing = result.scalars().first()
+
+            if existing:
+                existing.content = content_str
+                existing.system = metadata.get("system")
+                existing.sub_system = metadata.get("sub_system")
+                existing.module = metadata.get("module")
+                existing.category = metadata.get("category")
+                await session.commit()
+                await session.refresh(existing)
+                results.append({"filename": file.filename, "status": "updated", "id": existing.id})
+            else:
+                new_file = XmlFile(
+                    filename=file.filename,
+                    content=content_str,
+                    system=metadata.get("system"),
+                    sub_system=metadata.get("sub_system"),
+                    module=metadata.get("module"),
+                    category=metadata.get("category"),
+                )
+                session.add(new_file)
+                await session.commit()
+                await session.refresh(new_file)
+                results.append({"filename": file.filename, "status": "imported", "id": new_file.id})
+
+        except Exception as e:
+            results.append({"filename": file.filename, "status": "error", "reason": str(e)})
+
+    return {"results": results}

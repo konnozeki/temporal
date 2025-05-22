@@ -9,3 +9,4 @@ pandas
 asyncpg
 openpyxl
 python-socketio
+psycopg2

@@ -28,7 +28,7 @@ class RouteGenerator:
                 if "foreign_key" in field and field["foreign_key"] and len(field["foreign_key"].strip()) > 0:
                     fk_items = field["foreign_key"].strip().replace(" ", "").split(",")
                     if fk_items[0]:
-                        fk_list.append(re.sub("^nagaco_|^hrm_", "", fk_items[0]))
+                        fk_list.append(re.sub("^nagaco_|^hrm_|^fin_", "", fk_items[0]))
             self.foreign_keys = fk_list
 
         except Exception as e:

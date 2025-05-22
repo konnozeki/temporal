@@ -19,7 +19,6 @@ class XMLGenerationWorkflow:
 
     @workflow.run
     async def run(self, template_contents, kw={}):
-        await asyncio.sleep(10)
         # Tạo buffer zip
         zip_buffer = io.BytesIO()
         try:
