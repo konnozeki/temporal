@@ -11,6 +11,7 @@ TYPE_CONFIG = {
     "double": "float",
     "ký tự": "varchar",
     "datetime": "date",
+    "logic": "bool",
 }
 
 NOT_NULL_CONFIG = {

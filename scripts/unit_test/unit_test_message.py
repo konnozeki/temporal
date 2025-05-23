@@ -1,0 +1,27 @@
+from enum import Enum
+
+
+class Message(Enum):
+    default = "Đã xảy ra lỗi: {1}"
+    required = "Trường này bắt buộc phải có"
+    existence = "Không tìm thấy bản ghi."
+    page_number = "Số trang phải là dạng số tự nhiên."
+    columnlist = "Danh sách các cột không đúng."
+    min_length = "Trường này có độ dài nhỏ hơn độ dài cho phép là {1}"
+    max_length = "Trường này có độ dài lớn hơn độ dài cho phép là {1}"
+    range_length = "Trường này có độ dài không nằm trong khoảng cho phép là từ {1} đến {2}"
+    min = "Trường này có giá trị nhỏ hơn giá trị cho phép là {1}"
+    max = "Trường này có giá trị lớn hơn giá trị cho phép là {1}"
+    range = "Trường này có giá trị không nằm trong khoảng cho phép là từ {1} đến {2}"
+    step = "Trường này bước giá trị không đúng phải là bội số của {1}"
+    email = "Trường này chưa đúng định dạng email"
+    url = "Trường này chưa đúng định dạng địa chỉ URL"
+    date = "Trường này chưa đúng định dạng (hoặc giá trị) ngày tháng (yyyy-mm-dd)"
+    number = "Trường này chưa đúng định dạng số"
+    digits = "Trường này chưa đúng định dạng chỉ gồm các chữ số."
+    equal_to = "Trường này chưa đúng do không giống với trường {1}"
+    file_type = "Kiểu của file chưa đúng"
+    file_size = "Kích thước của file lớn hơn {1}"
+    unique = "Trường này không được trùng nhau."
+    foreign_key = "Giá trị này không hợp lệ."
+    regexp = "Trường này định dạng chưa đúng."
