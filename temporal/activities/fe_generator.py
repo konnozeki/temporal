@@ -10,7 +10,7 @@ from scripts.frontend.configuration_generator import ConfigurationGenerator
 @activity.defn
 async def generate_service(model_name, xml_dict):
     # Sinh các services
-    return ServiceGenerator("").generate(model_name, xml_dict)
+    return ServiceGenerator().generate(model_name, xml_dict)
 
 
 @activity.defn

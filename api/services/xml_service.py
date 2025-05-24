@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import case, not_
 from sqlalchemy.orm import selectinload
 from db.models import XmlFile
 from sqlalchemy import func, delete
@@ -72,30 +73,45 @@ async def list_xml_files(session: AsyncSession):
     return success_response(data=files)
 
 
-async def list_xml_files_by_page(session: AsyncSession, page: int = 1, size: int = 10):
+async def list_xml_files_by_page(session: AsyncSession, page: int = 1, size: int = 10, idlist: str = ""):
     page = int(page)
     size = int(size)
     if page < 1 or size < 1:
         return error_response("Tham số truyền vào không hợp lệ")
 
-    # Chuẩn bị điều kiện lọc
+    # Parse idlist
+    id_priority_list = []
+    if idlist:
+        try:
+            id_priority_list = [int(i.strip()) for i in idlist.split(",") if i.strip().isdigit()]
+        except ValueError:
+            return error_response("idlist không hợp lệ")
+
+    results = []
+
+    # 1. Lấy các bản ghi trong id_priority_list
+    if id_priority_list:
+        stmt_priority = select(XmlFile).where(XmlFile.id.in_(id_priority_list)).order_by(case(*((XmlFile.id == val, i) for i, val in enumerate(id_priority_list)), else_=len(id_priority_list)))
+        result_priority = await session.execute(stmt_priority)
+        priority_files = result_priority.scalars().all()
+        results.extend(priority_files)
+
     filters = []
+    if id_priority_list:
+        filters.append(not_(XmlFile.id.in_(id_priority_list)))
 
-    # Đếm tổng số bản ghi với điều kiện
-    count_stmt = select(func.count()).select_from(XmlFile).where(*filters)
+    stmt_rest = select(XmlFile).where(*filters).order_by(XmlFile.created_at.desc()).offset((page - 1)).limit(size)  # offset chỉ khi không có ưu tiên
+    result_rest = await session.execute(stmt_rest)
+    rest_files = result_rest.scalars().all()
+    results.extend(rest_files)
+
+    # Đếm tổng số bản ghi
+    count_stmt = select(func.count()).select_from(XmlFile)
     total_count = (await session.execute(count_stmt)).scalar()
-
-    # Tính toán phân trang
     total_pages = (total_count + size - 1) // size
-    offset = (page - 1) * size
-
-    # Truy vấn bản ghi theo trang và điều kiện
-    stmt = select(XmlFile).where(*filters).order_by(XmlFile.created_at.desc()).offset(offset).limit(size)
-    result = await session.execute(stmt)
-    files = result.scalars().all()
 
     return success_response(
-        data=files,
+        data=results,
         info={
             "count": total_count,
             "current": page,

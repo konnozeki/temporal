@@ -1,95 +1,70 @@
 import random
 import string
-from importfile import ImportFile
-from message import Message
-
-METHOD = "get_by_page"
+from ..unit_test_utils import UnitTestUtils
+from ..unit_test_message import Message
 
 
-class GetByPageGenerator(ImportFile):
+class GetByPageGenerator:
     """
     Lớp sinh dữ liệu kiểm thử cho API get_by_page
+    Dựa vào các tham số: page, size, order, search, columnlist
     """
 
-    def __init__(self, xml_file_name, filePath, number_of_test=100, valid_id=1):
-        ImportFile.__init__(
-            self, xml_file_name, filePath, number_of_test, METHOD, valid_id
-        )
+    def __init__(self, column_list, order_alias_list):
+        self.column_list = column_list
+        self.order_alias_list = order_alias_list
+        self.test_cases = []
 
-    def __generate_invalid_order(self):
-        return_order = self.order_alias_list[0]
-        while return_order in self.order_alias_list:
-            return_order = "".join(
-                random.choice(string.ascii_letters + string.digits + "@#$%^&*")
-                for j in range(3)
-            )
-        return return_order
+    def _make_case(self, request, response):
+        self.test_cases.append({"request": request, "response": response})
+
+    def _generate_invalid_order(self):
+        while True:
+            order = "".join(random.choices(string.ascii_letters + string.digits + "@#$%^&*", k=3))
+            if order not in self.order_alias_list:
+                return order
+
+    def _generate_valid_columnlist(self, num_col=None):
+        if not num_col:
+            num_col = random.randint(1, len(self.column_list))
+        return ",".join(random.sample(self.column_list, k=num_col))
+
+    def _generate_invalid_columnlist(self):
+        max_length = max(len(col) for col in self.column_list)
+        return ",".join([UnitTestUtils.generate_string_between(max_length + 1, max_length + 5) for _ in range(3)])
+
+    # --------------------------
+    # Các chiến lược test case
+    # --------------------------
+
+    def valid_case(self):
+        request = {"page": 1, "size": 10, "order": random.choice(self.order_alias_list), "search": "", "columnlist": self._generate_valid_columnlist()}
+        response = {"code": 200, "status": "success"}
+        self._make_case(request, response)
+
+    def invalid_page_case(self):
+        request = {"page": -1, "size": 10, "order": random.choice(self.order_alias_list), "search": "", "columnlist": self._generate_valid_columnlist()}
+        response = {"code": "B601", "status": "error", "message": Message.page_number.value}
+        self._make_case(request, response)
+
+    def invalid_order_case(self):
+        invalid_order = self._generate_invalid_order()
+        request = {"page": 1, "size": 10, "order": invalid_order, "search": "", "columnlist": self._generate_valid_columnlist()}
+        response = {"code": "B600", "status": "error", "message": Message.default.value.replace("{1}", f"'{invalid_order}'")}
+        self._make_case(request, response)
+
+    def invalid_columnlist_case(self):
+        request = {"page": 1, "size": 10, "order": random.choice(self.order_alias_list), "search": "", "columnlist": self._generate_invalid_columnlist()}
+        response = {"code": "B607", "status": "error", "message": Message.columnlist.value}
+        self._make_case(request, response)
+
+    # --------------------------
+    # Sinh tất cả test case
+    # --------------------------
 
     def generate(self):
-        iteration = 0
-        max_length_item = max(len(item) for item in self.column_list)
-        while iteration < self.number_of_test:
-            column_validation = random.choice(["valid", "invalid"])
-            order_validation = random.choice(["valid", "invalid"])
-            page_validation = random.choice(["valid", "invalid"])
-            if page_validation == "valid":
-                if order_validation == "valid":
-                    if column_validation == "valid":
-                        self.id_list.append(str(random.randint(1, 10)))
-                        self.request_list.append(
-                            {
-                                "columnlist": self._generate_valid_column_list(),
-                                "order": random.choice(self.order_alias_list),
-                            }
-                        )
-                        self.response_message_list.append("")
-                        self.response_code_list.append(200)
-                        self.response_status_list.append("success")
-                    else:
-                        self.id_list.append(str(random.randint(1, 10)))
-                        column_list, raw_segments = self._generate_invalid_column_list(
-                            max_length_item, len(self.column_list)
-                        )
-                        difference = (set(raw_segments)).difference(self.column_list)
-                        self.request_list.append({"columnlist": column_list})
-                        self.response_message_list.append(
-                            Message().DEFAULT_MESSAGE["columnlist"] + f" {difference}"
-                        )
-                        self.response_code_list.append(
-                            self.method["error_code"] + "607"
-                        )
-                        self.response_status_list.append("error")
-                else:
-                    invalid_order = self.__generate_invalid_order()
-                    self.id_list.append(str(random.randint(1, 10)))
-                    self.request_list.append(
-                        {
-                            "columnlist": self._generate_valid_column_list(),
-                            "order": invalid_order,
-                        }
-                    )
-                    self.response_message_list.append(
-                        Message()
-                        .DEFAULT_MESSAGE["default"]
-                        .replace("{1}", f"'{invalid_order}'")
-                    )
-                    self.response_code_list.append(self.method["error_code"] + "600")
-                    self.response_status_list.append("error")
-            else:
-                self.id_list.append(random.randint(-10, -1))
-                self.request_list.append(
-                    {
-                        "columnlist": self._generate_valid_column_list(),
-                        "order": random.choice(self.order_list),
-                    }
-                )
-                self.response_message_list.append(
-                    Message().DEFAULT_MESSAGE["page_number"]
-                )
-                self.response_code_list.append(self.method["error_code"] + "601")
-                self.response_status_list.append("error")
-
-            self.response_data.append({})
-            iteration += 1
-
-        self._write_excel()
+        self.valid_case()
+        self.invalid_page_case()
+        self.invalid_order_case()
+        self.invalid_columnlist_case()
+        return self.test_cases

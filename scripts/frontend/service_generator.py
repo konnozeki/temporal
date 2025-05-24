@@ -1,13 +1,14 @@
 class ServiceGenerator:
-    def __init__(self, prefix):
-        self.prefix = prefix
+    def __init__(self):
+        pass
 
     def generate(self, model_name, xml_dict):
         try:
             class_name = model_name.replace("_", " ").title().replace(" ", "")
             object_name = class_name[0].lower() + class_name[1:]
-            service_prefix = self.prefix.title()
             fields = xml_dict.get("root", {}).get("fields", {}).get("field", [])
+            self.prefix = xml_dict.get("root", {}).get("system_code", "SYS")
+            service_prefix = self.prefix.title()
             if not isinstance(fields, list):
                 fields = [fields]
 

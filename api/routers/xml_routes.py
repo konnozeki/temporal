@@ -19,8 +19,8 @@ async def list_xml_files(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/page")
-async def list_xml_files_by_page(page=1, size=10, db: AsyncSession = Depends(get_db)):
-    return await xml_service.list_xml_files_by_page(db, page=page, size=size)
+async def list_xml_files_by_page(page=1, size=10, idlist="", db: AsyncSession = Depends(get_db)):
+    return await xml_service.list_xml_files_by_page(db, page=page, size=size, idlist=idlist)
 
 
 @router.post("/")
