@@ -49,4 +49,4 @@ class GetByIdGenerator:
         self.invalid_column_list_case(mid)
         self.invalid_column_list_case(len(self.column_list))
 
-        return self.test_cases["request"], self.test_cases["response"]
+        return self.test_cases

@@ -1,8 +1,18 @@
 from typing import Dict, Union, Any
+from .api.get_all import GetAllGenerator
+from .api.get_by_page import GetByPageGenerator
+from .api.get_by_id import GetByIdGenerator
+from .api.store import StoreGenerator
+from .api.update import UpdateGenerator
+from .api.import_data import ImportGenerator
+from .api.export_by_id import ExportByIDGenerator
+from .api.mass_export import MassExportGenerator
 
 
 class UnitTestGenerator:
-    def __init__(self, xml_dict: Dict[str, Any]):
+    def __init__(self, xml_dict: Dict[str, Any], db_context={}):
+        self.db_context = db_context
+        self.model = xml_dict.get("root", {}).get("model", "").strip()
         self.xml_fields = xml_dict.get("root", {}).get("fields", {}).get("field", [])
         # Column list cho các phương thức get
         self.column_list = [field["alias"].strip() for field in self.xml_fields if field.get("alias")]
@@ -83,3 +93,19 @@ class UnitTestGenerator:
                 # Kiểm tra kiểu boolean
             if field_type == "bool":
                 self.boolean_fields.append(name)
+
+    def map_test_cases(self):
+        pass
+
+    def generate(self):
+        self.create_criteria()
+        test_cases = []
+        test_cases.extend(GetAllGenerator(column_list=self.column_list).generate())
+        test_cases.extend(GetByIdGenerator(column_list=self.column_list).generate())
+        test_cases.extend(GetByPageGenerator(column_list=self.column_list, order_alias_list=self.order_alias_list).generate())
+        test_cases.extend(StoreGenerator(field_list=self.fields, criteria=self.criteria).generate())
+        test_cases.extend(UpdateGenerator(field_list=self.fields, criteria=self.criteria).generate())
+        test_cases.extend(ImportGenerator(field_list=self.fields, criteria=self.criteria).generate())
+        test_cases.extend(ExportByIDGenerator(column_list=self.column_list).generate())
+        test_cases.extend(MassExportGenerator(column_list=self.column_list).generate())
+        return {self.model: test_cases}

@@ -1,12 +1,13 @@
 import base64
 from io import BytesIO
-from fastapi import UploadFile, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import UploadFile, HTTPException
 from fastapi.responses import StreamingResponse
 from temporalio.client import Client
 from ..workflow_status import set_status, get_status
 from temporal.workflows.fe_workflow import FeCodeGenerationWorkflow
 from temporal.workflows.be_workflow import BeCodeGenerationWorkflow
 from temporal.workflows.xml_workflow import XMLGenerationWorkflow
+from temporal.workflows.unit_test_workflow import UnitTestGenerationWorkflow
 import uuid
 from typing import List, Dict
 from ..utils import sio
@@ -19,6 +20,7 @@ CONFIGURATION = {
     "FE": {"workflow": FeCodeGenerationWorkflow, "extension": "js"},
     "BE": {"workflow": BeCodeGenerationWorkflow, "extension": "py"},
     "XML": {"workflow": XMLGenerationWorkflow, "extension": "xml"},
+    "UT": {"workflow": UnitTestGenerationWorkflow, "extension": "zip"},
 }
 
 

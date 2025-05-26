@@ -4,6 +4,7 @@ from temporalio.worker import Worker, WorkflowRunner
 from ..workflows.fe_workflow import FeCodeGenerationWorkflow
 from ..workflows.be_workflow import BeCodeGenerationWorkflow
 from ..workflows.xml_workflow import XMLGenerationWorkflow
+from ..workflows.unit_test_workflow import UnitTestGenerationWorkflow
 from ..activities import all_activities
 
 
@@ -19,6 +20,7 @@ async def main():
             FeCodeGenerationWorkflow,
             BeCodeGenerationWorkflow,
             XMLGenerationWorkflow,
+            UnitTestGenerationWorkflow,
         ],
         activities=all_activities,
     )

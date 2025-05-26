@@ -18,6 +18,11 @@ async def generate_be(templates: List[UploadFile] = File(...), client: Client = 
     return await start_generate(templates, "BE", client=client)
 
 
+@router.post("/generate_ut/")
+async def generate_be(templates: List[UploadFile] = File(...), client: Client = Depends(get_client)):
+    return await start_generate(templates, "UT", client=client)
+
+
 @router.post("/generate_raw_fe/")
 async def generate_raw_fe(templates: List[dict] = Body(...), client: Client = Depends(get_client)):
     return await start_raw_generate(templates, "FE", client=client)
@@ -26,6 +31,11 @@ async def generate_raw_fe(templates: List[dict] = Body(...), client: Client = De
 @router.post("/generate_raw_be/")
 async def generate_raw_be(templates: List[dict] = Body(...), client: Client = Depends(get_client)):
     return await start_raw_generate(templates, "BE", client=client)
+
+
+@router.post("/generate_raw_ut/")
+async def generate_raw_be(templates: List[dict] = Body(...), client: Client = Depends(get_client)):
+    return await start_raw_generate(templates, "UT", client=client)
 
 
 @router.post("/generate_xml/")

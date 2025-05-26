@@ -2,6 +2,7 @@ from .fe_generator import *
 from .be_generator import *
 from .xml_generator import *
 from .db_writer import *
+from .unit_test_generator import *
 
 fe_activities = [
     generate_column_setting,
@@ -24,5 +25,7 @@ db_writer_activities = [
     save_generated_xml,
 ]
 
+unit_test_activities = [generate_unit_tests, collect_table_contexts]
+
 # Flatten everything
-all_activities = [*fe_activities, *be_activities, *xml_activities, *db_writer_activities]
+all_activities = [*fe_activities, *be_activities, *xml_activities, *db_writer_activities, *unit_test_activities]

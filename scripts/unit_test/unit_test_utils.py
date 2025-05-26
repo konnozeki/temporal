@@ -15,7 +15,7 @@ class CharacterType(Enum):
 class UnitTestUtils:
 
     @staticmethod
-    def generate_string_between(num_min: int = 0, num_max: int = 99999, string_type: CharacterType = CharacterType.NORMAL):
+    def generate_string_between(num_min: int = 0, num_max: int = 99999, string_type=CharacterType.NORMAL.value):
         """
         Hàm tạo ra xâu ký tự với độ dài ngẫu nhiên nằm giữa khoảng bé hơn và khoảng lớn hơn.
         - Các thuộc tính:
@@ -31,7 +31,7 @@ class UnitTestUtils:
         return str_return
 
     @staticmethod
-    def generate_string_specific(num_character: int = 10, string_type: CharacterType = CharacterType.NORMAL):
+    def generate_string_specific(num_character: int = 10, string_type=CharacterType.NORMAL.value):
         """
         Hàm tạo ra xâu ký tự với độ dài xác định cụ thể.
         - Các thuộc tính:
@@ -45,7 +45,7 @@ class UnitTestUtils:
         return str_return
 
     @staticmethod
-    def generate_string_above(num_character: int = 10, string_type: CharacterType = CharacterType.NORMAL):
+    def generate_string_above(num_character: int = 10, string_type=CharacterType.NORMAL.value):
         """
         Hàm tạo ra xâu ký tự với độ dài ngẫu nhiên nằm trên khoảng cho trước, tối đa nằm trên khoảng 100 ký tự.
         - Các thuộc tính:
@@ -61,7 +61,7 @@ class UnitTestUtils:
         return str_return
 
     @staticmethod
-    def generate_string_under(num_character: int = 10, string_type: CharacterType = CharacterType.NORMAL):
+    def generate_string_under(num_character: int = 10, string_type=CharacterType.NORMAL.value):
         """
         Hàm tạo ra xâu ký tự với độ dài ngẫu nhiên nằm dưới khoảng cho trước.
         - Các thuộc tính:
