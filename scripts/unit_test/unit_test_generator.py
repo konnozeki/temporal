@@ -7,6 +7,7 @@ from .api.update import UpdateGenerator
 from .api.import_data import ImportGenerator
 from .api.export_by_id import ExportByIDGenerator
 from .api.mass_export import MassExportGenerator
+import re
 
 
 class UnitTestGenerator:
@@ -94,18 +95,72 @@ class UnitTestGenerator:
             if field_type == "bool":
                 self.boolean_fields.append(name)
 
-    def map_test_cases(self):
-        pass
+    def resolve_placeholder(self, placeholder: str) -> Any:
+        # Trường hợp đặc biệt không theo model cụ thể
+        if placeholder == "valid_id":
+            # Lấy từ model đầu tiên
+            model = next(iter(self.db_context))
+            return self.db_context[model]["ids"][0]
+        elif placeholder == "invalid_id":
+            # Lấy từ model đầu tiên
+            model = next(iter(self.db_context))
+            return self.db_context[model]["next_id"] + 100
+        if placeholder == "valid_idlist":
+            # Lấy từ model đầu tiên
+            model = next(iter(self.db_context))
+            return self.db_context[model]["ids"]
+        elif placeholder == "invalid_idlist":
+            return [-1, -2]
+        elif placeholder == "invalid_format_idlist":
+            return ["abc", "!@#"]
+        elif placeholder == "invalid_existence_idlist":
+            model = next(iter(self.db_context))
+            return [self.db_context[model]["next_id"] + 100]
+        # Trường hợp cụ thể: valid_fin_expense_item_id
+        match = re.match(r"valid_(\w+)_id", placeholder)
+        if match:
+            model = match.group(1)
+            return self.db_context[model]["ids"][0]
+
+        match = re.match(r"invalid_(\w+)_id", placeholder)
+        if match:
+            model = match.group(1)
+            return self.db_context[model]["next_id"] + 100
+        return f"{{{placeholder}}}"  # fallback nếu không match
+
+    def replace_placeholders(self, obj: Any) -> Any:
+        try:
+            if isinstance(obj, str):
+                placeholders = re.findall(r"\{([^{}]+)\}", obj)
+                for ph in placeholders:
+                    value = self.resolve_placeholder(ph)
+                    if isinstance(value, list):
+                        obj = value  # nếu là list thì thay toàn bộ string
+                    else:
+                        obj = obj.replace(f"{{{ph}}}", str(value))
+                return obj
+            elif isinstance(obj, dict):
+                return {k: self.replace_placeholders(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [self.replace_placeholders(i) for i in obj]
+            else:
+                return obj
+        except:
+            return obj
+
+    def map_test_cases(self, test_cases: Dict[str, Any]) -> Dict[str, Any]:
+        return self.replace_placeholders(test_cases)
 
     def generate(self):
         self.create_criteria()
         test_cases = []
-        test_cases.extend(GetAllGenerator(column_list=self.column_list).generate())
-        test_cases.extend(GetByIdGenerator(column_list=self.column_list).generate())
-        test_cases.extend(GetByPageGenerator(column_list=self.column_list, order_alias_list=self.order_alias_list).generate())
-        test_cases.extend(StoreGenerator(field_list=self.fields, criteria=self.criteria).generate())
-        test_cases.extend(UpdateGenerator(field_list=self.fields, criteria=self.criteria).generate())
-        test_cases.extend(ImportGenerator(field_list=self.fields, criteria=self.criteria).generate())
-        test_cases.extend(ExportByIDGenerator(column_list=self.column_list).generate())
-        test_cases.extend(MassExportGenerator(column_list=self.column_list).generate())
+        test_cases.extend(GetAllGenerator(column_list=self.column_list, model=self.model).generate())
+        test_cases.extend(GetByIdGenerator(column_list=self.column_list, model=self.model).generate())
+        test_cases.extend(GetByPageGenerator(column_list=self.column_list, order_alias_list=self.order_alias_list, model=self.model).generate())
+        test_cases.extend(StoreGenerator(field_list=self.fields, criteria=self.criteria, model=self.model).generate())
+        test_cases.extend(UpdateGenerator(field_list=self.fields, criteria=self.criteria, model=self.model).generate())
+        test_cases.extend(ImportGenerator(field_list=self.fields, criteria=self.criteria, model=self.model).generate())
+        test_cases.extend(ExportByIDGenerator(column_list=self.column_list, model=self.model).generate())
+        test_cases.extend(MassExportGenerator(column_list=self.column_list, model=self.model).generate())
+        test_cases = self.map_test_cases(test_cases)
         return {self.model: test_cases}

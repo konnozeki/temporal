@@ -8,21 +8,16 @@ class MassExportGenerator:
     Lớp sinh dữ liệu kiểm thử cho API mass_export
     """
 
-    def __init__(self, column_list):
+    def __init__(self, column_list, model=None):
+        self.model = model
         self.column_list = column_list
         self.test_cases = []
 
         self.valid_types = ["pdf", "xlsx", "docx", "csv", "json", "xml"]
         self.invalid_types = ["exe", "html", "zip", "mp3", "unknown"]
-        self.ERROR_CODE = "D"
 
-    def _make_case(self, columnlist, export_type, idlist_placeholder, expect_code, expect_status, expect_message=""):
-        request = {"columnlist": columnlist, "type": export_type, "idlist": idlist_placeholder}
-        response = {"code": expect_code, "status": expect_status}
-        if expect_message:
-            response["message"] = expect_message
-
-        self.test_cases.append({"request": request, "response": response})
+    def _make_case(self, request, response):
+        self.test_cases.append({"request": request, "expected_response": response, "info": {"route": f"/api/{self.model}/export", "method": "GET"}})
 
     def _generate_valid_columnlist(self):
         return ",".join(random.sample(self.column_list, k=random.randint(1, len(self.column_list))))
@@ -39,27 +34,27 @@ class MassExportGenerator:
     def valid_case(self):
         col = self._generate_valid_columnlist()
         typ = random.choice(self.valid_types)
-        self._make_case(col, typ, "{valid_idlist}", 200, "success")
+        self._make_case({"columnlist": col, "type": typ, "idlist": "{valid_idlist}"}, {"code": 200, "status": "success"})
 
     def invalid_type_case(self):
         col = self._generate_valid_columnlist()
         typ = random.choice(self.invalid_types)
-        self._make_case(col, typ, "{valid_idlist}", self.ERROR_CODE + "601", "error", "Định dạng tệp xuất ra không đúng.")
+        self._make_case({"columnlist": col, "type": typ, "idlist": "{valid_idlist}"}, {"code": "I601", "status": "error", "message": "Định dạng tệp xuất ra không đúng."})
 
     def invalid_columnlist_case(self):
         col, diff = self._generate_invalid_columnlist()
         typ = random.choice(self.valid_types)
-        self._make_case(col, typ, "{valid_idlist}", self.ERROR_CODE + "607", "error", Message.columnlist.value + f" {diff}")
+        self._make_case({"columnlist": col, "type": typ, "idlist": "{valid_idlist}"}, {"code": "I607", "status": "error", "message": Message.columnlist.value + f" {diff}"})
 
     def invalid_idlist_format_case(self):
         col = self._generate_valid_columnlist()
         typ = random.choice(self.valid_types)
-        self._make_case(col, typ, "{invalid_format_idlist}", 400, "error", "Đầu vào cho tham số không đúng.")
+        self._make_case({"columnlist": col, "type": typ, "idlist": "{invalid_format_idlist}"}, {"code": 400, "status": "error", "message": "Đầu vào cho tham số không đúng."})
 
     def invalid_idlist_existence_case(self):
         col = self._generate_valid_columnlist()
         typ = random.choice(self.valid_types)
-        self._make_case(col, typ, "{invalid_existence_idlist}", self.ERROR_CODE + "604", "warning", "Danh sách có chứa id không còn tồn tại.")
+        self._make_case({"columnlist": col, "type": typ, "idlist": "{invalid_existence_idlist}"}, {"code": "I604", "status": "warning", "message": "Danh sách có chứa id không còn tồn tại."})
 
     # --------------------------
     # Sinh toàn bộ test case

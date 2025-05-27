@@ -1,18 +1,19 @@
 FROM python:3.11-slim
 
-# Cài đặt OS dependencies (nếu dùng asyncpg)
+# Cài OS dependencies
 RUN apt-get update && apt-get install -y gcc libpq-dev && rm -rf /var/lib/apt/lists/*
 
-# Tạo thư mục và copy code vào
+# Tạo thư mục và copy requirements trước
 WORKDIR /app
-COPY . .
+COPY requirements.txt .
 
-# Cài dependencies
+# Cài pip và requirements
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Đảm bảo PYTHONPATH để dùng được lệnh kiểu: python -m api.migrate
-ENV PYTHONPATH=/app
+# Sau đó mới copy toàn bộ project (code)
+COPY . .
 
-# Lệnh mặc định cho container app (FastAPI)
+# ENV và CMD như cũ
+ENV PYTHONPATH=/app
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

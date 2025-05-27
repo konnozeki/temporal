@@ -8,12 +8,13 @@ class GetAllGenerator:
     Lớp sinh dữ liệu kiểm thử cho API get_all
     """
 
-    def __init__(self, column_list):
+    def __init__(self, column_list, model=None):
+        self.model = model
         self.column_list = column_list
         self.test_cases = []
 
     def _make_case(self, request, response):
-        self.test_cases.append({"request": request, "response": response})
+        self.test_cases.append({"request": request, "expected_response": response, "info": {"route": f"/api/{self.model}", "method": "GET"}})
 
     def valid_case(self, num_col=1):
         cols = random.sample(self.column_list, k=random.randint(max(1, num_col), len(self.column_list)))

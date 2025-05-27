@@ -26,31 +26,44 @@ CONFIGURATION = {
 
 @sio.event
 async def workflow_status(sid, data):
-    workflow_id = data.get("workflow_id")
+    workflow_ids = data.get("workflow_ids", [])
+
+    if not isinstance(workflow_ids, list) or not workflow_ids:
+        await sio.emit("workflow_status_error", {"error": "Danh sách workflow_ids không hợp lệ"}, to=sid)
+        return
 
     try:
-        client = await get_client()  # hoặc dùng get_client()
-        handle = client.get_workflow_handle(workflow_id)
+        client = await get_client()
 
-        while True:
-            info = await handle.describe()
-            await sio.emit(
-                "workflow_status_update",
-                {
-                    "workflow_id": workflow_id,
-                    "status": info.status.name,
-                    "history_length": info.history_length,
-                    "close_time": info.close_time.isoformat() if info.close_time else None,
-                    "start_time": info.start_time.isoformat() if info.start_time else None,
-                    "workflow_type": info.workflow_type,
-                },
-                to=sid,
-            )
+        async def track_workflow(workflow_id):
+            try:
+                handle = client.get_workflow_handle(workflow_id)
 
-            if info.status.name in ("COMPLETED", "FAILED", "TERMINATED", "CANCELED"):
-                break
+                while True:
+                    info = await handle.describe()
+                    await sio.emit(
+                        "workflow_status_update",
+                        {
+                            "workflow_id": workflow_id,
+                            "status": info.status.name,
+                            "history_length": info.history_length,
+                            "close_time": info.close_time.isoformat() if info.close_time else None,
+                            "start_time": info.start_time.isoformat() if info.start_time else None,
+                            "workflow_type": info.workflow_type,
+                        },
+                        to=sid,
+                    )
 
-            await asyncio.sleep(2)
+                    if info.status.name in ("COMPLETED", "FAILED", "TERMINATED", "CANCELED"):
+                        break
+
+                    await asyncio.sleep(2)
+
+            except Exception as e:
+                await sio.emit("workflow_status_error", {"workflow_id": workflow_id, "error": str(e)}, to=sid)
+
+        # Chạy tất cả workflows song song
+        await asyncio.gather(*(track_workflow(wid) for wid in workflow_ids))
 
     except Exception as e:
         await sio.emit("workflow_status_error", {"error": str(e)}, to=sid)
@@ -179,6 +192,7 @@ async def get_workflows_by_page(client: Client, page_size: int = 50, next_page_t
                 "status": wf.status.name if wf.status else None,
                 "start_time": wf.start_time.isoformat() if wf.start_time else None,
                 "close_time": wf.close_time.isoformat() if wf.close_time else None,
+                "history_length": wf.history_length,
                 "workflow_type": wf.workflow_type,
             }
         )

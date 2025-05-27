@@ -10,13 +10,14 @@ class GetByPageGenerator:
     Dựa vào các tham số: page, size, order, search, columnlist
     """
 
-    def __init__(self, column_list, order_alias_list):
+    def __init__(self, column_list, order_alias_list, model=None):
+        self.model = model
         self.column_list = column_list
         self.order_alias_list = order_alias_list
         self.test_cases = []
 
     def _make_case(self, request, response):
-        self.test_cases.append({"request": request, "response": response})
+        self.test_cases.append({"request": request, "expected_response": response, "info": {"route": f"/api/{self.model}/page/{request['page']}", "method": "GET"}})
 
     def _generate_invalid_order(self):
         while True:

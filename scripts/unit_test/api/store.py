@@ -1,6 +1,7 @@
 import random
 from ..unit_test_utils import UnitTestUtils
 from ..unit_test_message import Message
+from ..unit_test_validator import Validator
 
 
 class StoreGenerator:
@@ -8,32 +9,38 @@ class StoreGenerator:
     Lớp sinh dữ liệu kiểm thử cho API store
     """
 
-    def __init__(self, field_list, criteria):
+    def __init__(self, field_list, criteria, model=None):
+        self.model = model  # Mô hình liên quan, nếu có
         self.field_list = field_list  # Danh sách tên các trường
         self.criteria = criteria  # Dict các rule cho từng trường
         self.test_cases = []
 
-    def _make_case(self, request, response, status, code, message):
-        self.test_cases.append({"request": request, "response": response, "status": status, "code": code, "message": message})
+    def validate(self, request):
+        return Validator().validate(self.field_list, request, self.criteria)
+
+    def _make_case(self, request, response):
+        self.test_cases.append({"request": request, "expected_response": response, "info": {"route": f"/api/{self.model}", "method": "POST"}})
 
     def _generate_valid_request(self):
         request = {}
 
         for field in self.field_list:
+            if field == "id":
+                continue
             rules = self.criteria.get(field, {})
 
             if rules.get("email"):
                 request[field] = UnitTestUtils.generate_random_email()
+
+            elif rules.get("foreign_key"):
+                reference = rules["foreign_key"]
+                request[field] = f"{{valid_{reference}_id}}"
 
             elif rules.get("number"):
                 request[field] = random.randint(1, 99999)
 
             elif rules.get("date"):
                 request[field] = UnitTestUtils.generate_datetime()
-
-            elif rules.get("foreign_key"):
-                reference = rules["foreign_key"]
-                request[field] = f"{{valid_{reference}_id}}"
 
             elif rules.get("boolean"):
                 request[field] = random.choice([True, False])
@@ -52,6 +59,8 @@ class StoreGenerator:
         max_errors = max(1, int(len(self.field_list) / 2))  # Inject khoảng 50%
 
         for field in self.field_list:
+            if field == "id":
+                continue
             rules = self.criteria.get(field, {})
             inject_error = random.random() < 0.5 and error_injected < max_errors
 
@@ -60,17 +69,17 @@ class StoreGenerator:
                 failed_fields.append(field)
 
                 if rules.get("email"):
-                    value = "invalid_email"
-
-                elif rules.get("number"):
-                    value = "abc"
-
-                elif rules.get("date"):
-                    value = "31-02-9999"
+                    value = UnitTestUtils.generate_string_specific(10)
 
                 elif rules.get("foreign_key"):
                     reference = rules["foreign_key"]
                     value = f"{{invalid_{reference}_id}}"
+
+                elif rules.get("number"):
+                    value = UnitTestUtils.generate_string_specific(5)
+
+                elif rules.get("date"):
+                    value = UnitTestUtils.generate_string_specific()
 
                 elif rules.get("boolean"):
                     value = "not_a_boolean"
@@ -89,15 +98,15 @@ class StoreGenerator:
                 if rules.get("email"):
                     value = UnitTestUtils.generate_random_email()
 
+                elif rules.get("foreign_key"):
+                    reference = rules["foreign_key"]
+                    value = f"{{valid_{reference}_id}}"
+
                 elif rules.get("number"):
                     value = random.randint(1, 99999)
 
                 elif rules.get("date"):
                     value = UnitTestUtils.generate_datetime()
-
-                elif rules.get("foreign_key"):
-                    reference = rules["foreign_key"]
-                    value = f"{{valid_{reference}_id}}"
 
                 elif rules.get("boolean"):
                     value = random.choice([True, False])
@@ -117,13 +126,22 @@ class StoreGenerator:
 
     def valid_case(self):
         request = self._generate_valid_request()
-        response = {}
-        self._make_case(request, response, "success", 200, "Tạo bản ghi thành công")
+        response = {"code": 200, "status": "success", "message": "Tạo bản ghi thành công", "data": request}
+        self._make_case(request, response)
 
     def invalid_case(self):
         request, failed_fields = self._generate_invalid_request()
-        response = {field: [] for field in failed_fields}
-        self._make_case(request, response, "warning", "B603", "Lỗi kiểm tra dữ liệu.")
+        passed, validate_response = self.validate(request)
+        response = {
+            "message": "Lỗi kiểm tra dữ liệu",
+            "status": "warning",
+            "code": "E603",
+            "data": {
+                "oldData": request,
+                "errors": validate_response,
+            },
+        }
+        self._make_case(request, response)
 
     # --------------------------
     # Sinh toàn bộ test case
@@ -131,5 +149,12 @@ class StoreGenerator:
 
     def generate(self):
         self.valid_case()
+        self.valid_case()
+        self.valid_case()
+        self.invalid_case()
+        self.invalid_case()
+        self.invalid_case()
+        self.invalid_case()
+        self.invalid_case()
         self.invalid_case()
         return self.test_cases

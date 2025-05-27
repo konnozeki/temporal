@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Union
-from unit_test_message import Message
+from .unit_test_message import Message
 from datetime import datetime
 import re
 
@@ -13,6 +13,9 @@ class Validator:
             response[field].append(message)
         return response
 
+    def check_foreign_key(self, value: Union[str, int], reference: str) -> bool:
+        return value.startswith("{valid")
+
     def validate(self, fields: List[str] = [], request: Dict[str, Union[str, int, float, bool]] = {}, criteria: Dict[str, Dict[str, Any]] = {}) -> Dict[str, list]:
         response = {}
         passed = True
@@ -24,15 +27,15 @@ class Validator:
             for rule in rule_dict.keys():
                 match rule:
                     case "required":
-                        if len(value) == 0:
+                        if len(str(value)) == 0:
                             passed = False
                             self.handle_create_attribute(response, field, Message.required.value)
                     case "min_length":
-                        if len(value) < rule_dict[rule]:
+                        if len(str(value)) < rule_dict[rule]:
                             passed = False
                             self.handle_create_attribute(response, field, Message.min_length.value.replace("{1}", f"{rule_dict[rule]}"))
                     case "max_length":
-                        if len(value) > rule_dict[rule]:
+                        if len(str(value)) > rule_dict[rule]:
                             passed = False
                             self.handle_create_attribute(response, field, Message.max_length.value.replace("{1}", f"{rule_dict[rule]}"))
                     case "min":
@@ -66,17 +69,25 @@ class Validator:
                             self.handle_create_attribute(response, field, Message.date.value)
                     case "number":
                         try:
-                            float(value)
+                            if "foreign_key" not in rule_dict.keys():
+                                float(value)
                         except:
                             self.handle_create_attribute(response, field, Message.number.value)
                     case "digits":
-                        if not value.isdigit():
-                            passed = False
-                            self.handle_create_attribute(response, field, Message.digits.value)
+                        if "foreign_key" not in rule_dict.keys():
+                            if not value.isdigit():
+                                passed = False
+                                self.handle_create_attribute(response, field, Message.digits.value)
                     case "equal_to":
                         if value != rule_dict[rule]:
                             passed = False
                             self.handle_create_attribute(response, field, Message.equal_to.value)
+                    case "foreign_key":
+                        # Giả sử chúng ta có một hàm kiểm tra khóa ngoại.
+                        # Nếu không tìm thấy bản ghi, sẽ trả về False.
+                        if not self.check_foreign_key(value, rule_dict[rule]):
+                            passed = False
+                            self.handle_create_attribute(response, field, Message.foreign_key.value)
 
                     # Các case khác sẽ được thiết lập sau.
-        return passed
+        return passed, response

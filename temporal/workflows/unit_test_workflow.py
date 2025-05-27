@@ -13,6 +13,7 @@ def extract_foreign_keys_from_all(xml_dicts):
     foreign_keys = set()
     for xml_dict in xml_dicts:
         try:
+            foreign_keys.add(xml_dict.get("root", {}).get("model", ""))
             fields = xml_dict.get("root", {}).get("fields", {}).get("field", [])
             if isinstance(fields, dict):
                 fields = [fields]  # convert single field to list
@@ -32,6 +33,7 @@ class UnitTestGenerationWorkflow:
 
     @workflow.run
     async def run(self, template_contents, kw={}):
+        await workflow.sleep(5)
         zip_buffer = io.BytesIO()
         try:
             xml_contexts = []
@@ -64,7 +66,7 @@ class UnitTestGenerationWorkflow:
                     for filename, content in unit_test_files.items():
                         if isinstance(content, list):
                             content = json.dumps(content, ensure_ascii=False, indent=2)
-                        zip_file.writestr(filename, content)
+                        zip_file.writestr(filename + ".js", content)
 
             # Return base64 encoded zip
             zip_buffer.seek(0)

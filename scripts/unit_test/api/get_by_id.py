@@ -8,12 +8,13 @@ class GetByIdGenerator:
     Lớp sinh dữ liệu kiểm thử cho API get_by_id
     """
 
-    def __init__(self, column_list):
+    def __init__(self, column_list, model=None):
         self.column_list = column_list
+        self.model = model
         self.test_cases = []
 
     def make_case(self, request, response):
-        self.test_cases.append({"request": request, "response": response})
+        self.test_cases.append({"request": request, "expected_response": response, "info": {"route": f"/api/{self.model}/{request['id']}", "method": "GET"}})
 
     def valid_case(self, num_col=1):
         cols = random.sample(self.column_list, k=random.randint(max(1, num_col), len(self.column_list)))

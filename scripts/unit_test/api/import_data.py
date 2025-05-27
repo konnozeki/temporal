@@ -1,5 +1,6 @@
 class ImportGenerator:
-    def __init__(self, field_list, criteria):
+    def __init__(self, field_list, criteria, model=None):
+        self.model = model
         self.field_list = field_list
         self.criteria = criteria
 
