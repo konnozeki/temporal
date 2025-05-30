@@ -12,7 +12,7 @@ class ServiceGenerator:
             if not isinstance(fields, list):
                 fields = [fields]
 
-            foreign_keys = [fk.strip().replace(f"{self.prefix}_", "") for field in fields if "foreign_key" in field and field["foreign_key"] for fk in field["foreign_key"].strip().split(",")]
+            foreign_keys = list(set([field["name"].replace("_id", "") for field in fields if "foreign_key" in field and field["foreign_key"] for fk in field["foreign_key"].strip().split(",")]))
             auto_generate_fields = [field["name"] for field in fields if field.get("auto_generate") == "1"]
 
             return f"""import {service_prefix}Service from "./{service_prefix}Service";

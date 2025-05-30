@@ -25,6 +25,7 @@ def extract_foreign_keys_from_all(xml_dicts):
                         foreign_keys.add(model_name)
         except Exception as e:
             workflow.logger.error(f"Error extracting foreign key: {e}")
+            return []
     return list(foreign_keys)
 
 

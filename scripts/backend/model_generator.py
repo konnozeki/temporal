@@ -153,6 +153,7 @@ class ModelGenerator:
             1. Nếu một trong các thuộc tính name, type, label bị thiếu thì dừng và báo lỗi.
             2. Nếu xảy ra lỗi bất kỳ thì phải bắt được và đưa ra thông báo đã gặp lỗi.
         """
+        str_fields_to_label = ""
         try:
             array_label = []
             str_fields_to_label = f"class {self.class_name}Fields2Labels(Enum):"

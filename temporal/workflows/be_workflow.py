@@ -22,7 +22,7 @@ class BeCodeGenerationWorkflow:
         zip_buffer = io.BytesIO()
 
         try:
-            await workflow.sleep(5)
+            # await workflow.sleep(5)
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 # Lặp qua từng model trong template_contents
                 for model in template_contents:

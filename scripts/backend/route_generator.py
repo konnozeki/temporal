@@ -22,14 +22,18 @@ class RouteGenerator:
 
             # Lấy danh sách các bảng khóa ngoại
             fk_list = []
+            fk_name_list = []
             for field in xml_dict["root"]["fields"]["field"]:
                 if field is None:
                     continue
                 if "foreign_key" in field and field["foreign_key"] and len(field["foreign_key"].strip()) > 0:
                     fk_items = field["foreign_key"].strip().replace(" ", "").split(",")
+                    fk_name = field["name"]
                     if fk_items[0]:
                         fk_list.append(re.sub("^nagaco_|^hrm_|^fin_", "", fk_items[0]))
+                        fk_name_list.append(fk_name)
             self.foreign_keys = fk_list
+            self.foreign_key_name = list(set(fk_name_list))
 
         except Exception as e:
             print(e)
@@ -38,9 +42,9 @@ class RouteGenerator:
 
     def generate_foreign_route(self):
         route_str = ""
-        for fk_name in self.foreign_keys:
+        for fk_name in self.foreign_key_name:
             route_str += f"""
-    @http.route(['/api/{self.model_name}/{fk_name}'], type='http', auth="none", methods=['GET'], sitemap=me.sitemap, cors=me.cors, csrf=me.csrf)
+    @http.route(['/api/{self.model_name}/{fk_name.replace("_id", "")}'], type='http', auth="none", methods=['GET'], sitemap=me.sitemap, cors=me.cors, csrf=me.csrf)
     def get_all_by_{fk_name}(self, **kw):
         auth = None
         if self.AUTH_MODE:
@@ -49,9 +53,9 @@ class RouteGenerator:
                 return res
             code, _, _ = Authentication.verify(f"{{self.ACTION_CODE}}-A") # Check user can Approval
             if code == 200:
-                return self.ctrl.get_all_by('{fk_name}', user=auth['data']['user'], approval=True, **kw)
-            return self.ctrl.get_all_by('{fk_name}', user=auth['data']['user'], **kw)
-        return self.ctrl.get_all_by('{fk_name}', **kw)
+                return self.ctrl.get_all_by('{fk_name.replace("_id", "")}', '{fk_name}', user=auth['data']['user'], approval=True, **kw)
+            return self.ctrl.get_all_by('{fk_name.replace("_id", "")}', '{fk_name}', user=auth['data']['user'], **kw)
+        return self.ctrl.get_all_by('{fk_name.replace("_id", "")}', '{fk_name}', **kw)
 """
         return route_str
 
