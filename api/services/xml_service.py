@@ -184,7 +184,6 @@ async def update_xml_file(id: int, request: dict = {}, session: AsyncSession = N
 
 async def create_xml_file(request: dict = {}, session: AsyncSession = None):
     try:
-        print(request, "request")
         xml_file = XmlFile(**request)
         session.add(xml_file)
         await session.commit()

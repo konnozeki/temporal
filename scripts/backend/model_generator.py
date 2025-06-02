@@ -276,6 +276,8 @@ class ModelGenerator:
                             args.append(f"size={size_val}")
                     except:
                         raise Exception("Định dạng 'range_length' không đúng.")
+                elif max_len_val > 0:
+                    args.append(f"size={max_len_val}")
 
                 # Handle default
                 if not foreign_key and default.upper() != "NULL":

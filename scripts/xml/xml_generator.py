@@ -12,6 +12,10 @@ TYPE_CONFIG = {
     "ký tự": "varchar",
     "datetime": "date",
     "logic": "bool",
+    "số thực": "float",
+    "số nguyên": "integer",
+    "file": "file",
+    "image": "file",
 }
 
 NOT_NULL_CONFIG = {

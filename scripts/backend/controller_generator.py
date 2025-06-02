@@ -79,7 +79,7 @@ class Field:
             elif attr == "foreign_key":
                 cleaned_fk = value.replace(" ", "").replace(",", ".")
                 rules.append(f"\t\t\t\t\t'{attr}': '{cleaned_fk}'")
-            elif attr in {"file.size", "file.type"} and self.isFile():
+            elif attr in {"file.size", "file.type"} and self.is_file():
                 file_rules.append(f"\t\t\t\t\t'{attr}': '{value}'")
             else:
                 rules.append(f"\t\t\t\t\t'{attr}': {value}")
