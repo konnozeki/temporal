@@ -84,6 +84,8 @@ services:
       - temporal
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
+      - GIT_ACCESS_TOKEN=${GIT_ACCESS_TOKEN}
+      - GIT_REPO_URL=${GIT_REPO_URL}
     ports:
       - 8000:8000
     networks:

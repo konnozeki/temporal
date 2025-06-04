@@ -1,7 +1,13 @@
 FROM python:3.11-slim
 
-# Cài OS dependencies
-RUN apt-get update && apt-get install -y gcc libpq-dev && rm -rf /var/lib/apt/lists/*
+# Cài OS dependencies (bao gồm git)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    git \
+    build-essential \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Tạo thư mục và copy requirements trước
 WORKDIR /app
@@ -11,7 +17,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Sau đó mới copy toàn bộ project (code)
+# Copy toàn bộ source code vào container
 COPY . .
 
 # ENV và CMD như cũ
