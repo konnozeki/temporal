@@ -10,6 +10,50 @@ import asyncio
 
 @workflow.defn(sandboxed=False)
 class BeCodeGenerationWorkflow:
+    """
+    Workflow thực hiện **tự động sinh mã backend** cho các model Odoo dựa trên cấu trúc XML. Mã sinh ra bao gồm:
+    - Model (`_model.py`)
+    - Controller (`_controller.py`)
+    - Route (`_route.py`)
+    - View (`_view.py`)
+    - Và các file `__init__.py` để import tự động trong thư mục.
+
+    Workflow này chạy trên Temporal và sử dụng các hoạt động (`activity`) được định nghĩa trong `be_generator`.
+
+    Cách hoạt động:
+    ---------------
+    1. Nhận danh sách các file XML (`template_contents`) — mỗi file mô tả 1 model.
+    2. Parse nội dung XML thành `dict`.
+    3. Gọi các activity:
+       - `generate_model`
+       - `generate_controller`
+       - `generate_route`
+       - `generate_view`
+    4. Ghi nội dung sinh ra vào file zip theo cấu trúc thư mục.
+    5. Mã hóa zip sang base64 và trả về.
+
+    Thuộc tính lớp:
+    ---------------
+    - `self.init_route_string`: nội dung file `route/__init__.py`
+    - `self.init_view_string`: nội dung file `model/view/__init__.py`
+    - `self.init_controller_string`: nội dung file `controller/__init__.py`
+    - `self.init_model_string`: nội dung file `model/__init__.py`
+
+    Method:
+    -------
+    ### `async def run(self, template_contents, kw={})`
+    - **Tham số**:
+      - `template_contents`: List[Dict], chứa `filename` và `content` (dạng bytes hoặc chuỗi encode).
+      - `kw`: Dict tùy chọn (không sử dụng trong hiện tại).
+
+    - **Trả về**:
+      - Dict có key `"zip_content"` chứa dữ liệu zip đã mã hóa base64.
+
+    - **Quy trình chi tiết**:
+    ```text
+    [XML model files] → [parse XML] → [generate code with activity] → [viết zip file] → [base64] → [return]
+    """
+
     def __init__(self):
         self.init_route_string = ""
         self.init_view_string = ""

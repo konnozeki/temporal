@@ -10,6 +10,48 @@ import asyncio
 
 @workflow.defn(sandboxed=False)
 class FeCodeGenerationWorkflow:
+    """
+    Workflow dùng Temporal để **sinh mã frontend** từ tập tin XML mô tả model. Các phần sinh ra bao gồm:
+    - `columnsettings`: cấu hình hiển thị bảng
+    - `services`: service class thao tác API
+    - `translations`: bản dịch đa ngôn ngữ (vi/en)
+    - `configuration`: import và cấu hình toàn cục
+    - `navigation`: cấu trúc menu điều hướng
+
+    Cách hoạt động:
+    ---------------
+    1. Nhận danh sách các file XML (`template_contents`), mỗi file chứa nội dung mô tả 1 model.
+    2. Parse XML → Dict (`xml_dict`)
+    3. Gọi các activity với timeout:
+       - `generate_column_setting`
+       - `generate_service`
+       - `generate_i18n`
+       - `generate_menu`
+       - `generate_configuration`
+    4. Ghi các file đã sinh vào một file ZIP (dạng base64) để trả về client.
+
+    Thuộc tính lớp:
+    ---------------
+    - `self.configuration_import_string`: phần import trong `config.js`
+    - `self.configuration_declare_string`: phần khai báo model trong `config.js`
+    - `self.navigation_string`: nội dung file `navigation.js`
+    - `self.system_code`, `self.sub_system_code`: mã hệ thống và phân hệ, gắn vào config.
+
+    Phương thức:
+    ------------
+    ### `async def run(self, template_contents, kw={})`
+    - **Tham số**:
+      - `template_contents`: List[Dict], mỗi phần tử gồm `filename` và `content` (dạng bytes).
+      - `kw`: Dict tùy chọn (không sử dụng trong phiên bản hiện tại).
+
+    - **Trả về**:
+      - Dict chứa `"zip_content"` (dữ liệu zip đã encode base64).
+
+    - **Chi tiết xử lý**:
+    ```text
+    [XML] → [parse] → [generate từng phần] → [ghi file zip] → [base64] → [trả kết quả]
+    """
+
     def __init__(self, **kw):
         self.configuration_import_string = ""
         self.system_code = kw.get("system_code", "SYS")

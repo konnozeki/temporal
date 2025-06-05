@@ -2,10 +2,35 @@ from temporalio import activity
 
 
 class FieldsGenerator:
+    """
+    Lớp `FieldsGenerator` dùng để sinh mã cấu hình `fields` cho frontend (thường dạng JavaScript) từ metadata XML.
+
+    ### Mục đích:
+    - Tự động chuyển đổi metadata (từ XML) thành cấu hình cột dùng trong form/table.
+    - Hỗ trợ các thuộc tính như: label, alias, reference, type, required, hidden, span, v.v.
+    """
+
     def __init__(self, xml_dict):
         self.xml_dict = xml_dict
 
     def generate(self):
+        """
+        Sinh mã JavaScript định nghĩa `fields` từ thông tin các trường trong XML.
+
+        ### Cách hoạt động:
+        - Duyệt qua từng `field` trong `xml_dict["root"]["fields"]["field"]`.
+        - Chuyển đổi các thuộc tính như:
+            + `name`, `label`, `type`, `show_type`, `not_null`, `alias`, `span`, `foreign_key`, ...
+        - Xử lý logic hiển thị (`default_display`) và ánh xạ `foreign_key.name/code`.
+        - Thêm mặc định trường `write_date` vào cuối.
+
+        ### Trả về:
+        - Chuỗi JavaScript: định nghĩa `const fields = [...]` dùng cho frontend (đặc biệt là `columnSettings`).
+
+        ### Ghi chú:
+        - Được dùng để tự động sinh file `SomeModelFields.ts`.
+        - Nếu có lỗi xảy ra, sẽ log lỗi và raise lại để workflow phía Temporal xử lý.
+        """
         try:
             fields = self.xml_dict["root"]["fields"]["field"]
             xml_fields = fields if isinstance(fields, list) else [fields]

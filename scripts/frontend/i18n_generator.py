@@ -2,11 +2,45 @@ import re
 
 
 class I18nGenerator:
+    """
+    Lớp `I18nGenerator` dùng để sinh ra chuỗi localization (`i18n`) dạng JSON cho cả tiếng Việt (vi) và tiếng Anh (en),
+    từ metadata định nghĩa field của một model.
+
+    ### Mục đích:
+    - Tự động sinh các cặp key-value bản địa hóa cho UI (label, message, button...).
+    - Chuẩn hóa theo định dạng `{ "field_name": "Nhãn" }`.
+
+    ### Thuộc tính:
+    - `xml_dict` (dict): Metadata được parse từ XML.
+    - `prefix` (str): Tiền tố cần loại bỏ khỏi tên model (nếu có), thường là `nagaco_`.
+    """
+
     def __init__(self, xml_dict, prefix=""):
         self.xml_dict = xml_dict
         self.prefix = prefix
 
     def generate(self):
+        """
+        Sinh ra cặp chuỗi JSON cho tiếng Việt và tiếng Anh.
+
+        ### Cách hoạt động:
+        - Trích xuất `model_name` và các `field` từ `xml_dict["root"]`.
+        - Với mỗi trường:
+            + Lấy `name`, `label` để xây key-value tương ứng.
+            + Với `foreign key`, tạo thêm định danh dạng `name`, `code` nếu có.
+        - Tự động tạo thêm các key chuẩn UI như:
+            + `add_new_<model>`, `edit_<model>`, `search_<model>`, `import_<model>_record`, v.v.
+        - Sử dụng `.format(class_name)` để chèn tên động vào các thông điệp mẫu.
+
+        ### Trả về:
+        - `vn_str`: Chuỗi JSON tiếng Việt (`{ "field_name": "..." }`)
+        - `en_str`: Chuỗi JSON tiếng Anh (`{ "field_name": "..." }`)
+
+        ### Ghi chú:
+        - Nếu không tìm được label cho field `name` hoặc `code`, sẽ fallback sang `model_name` (dạng snake_case).
+        - Dữ liệu trả về có thể copy trực tiếp vào file `vi.json` và `en.json`.
+
+        """
         try:
             model_name = self.xml_dict["root"]["model"].strip()
             fields = self.xml_dict["root"]["fields"]["field"]
