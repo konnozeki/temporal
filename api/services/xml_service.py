@@ -3,11 +3,13 @@ from sqlalchemy.future import select
 from sqlalchemy import case, not_, func, delete
 from fastapi import UploadFile, File
 from db.models import XmlFile
-from typing import Optional
+from pathlib import Path
 import xml.etree.ElementTree as ET
 import xmltodict
 from .git_service import GitService
 import os
+
+MODULE_CONFIGURATION_LIST = ["fob", "hrm", "fin"]
 
 
 class XmlService:
@@ -38,7 +40,7 @@ class XmlService:
     """
 
     def __init__(self):
-        self.git = GitService(repo_path="./xml_repo", remote_url=os.getenv("GIT_REPO_URL"), token=os.getenv("GIT_ACCESS_TOKEN"))
+        self.git = GitService(repo_path="./xml_repo", remote_url="https://git.trianh.dev/viettt/xml-management.git", token="")
 
     async def extract_system_info(self, xml_content: str):
         """
@@ -212,28 +214,36 @@ class XmlService:
             if not id_array:
                 return self.error_response("Không có ID hợp lệ nào", 603)
 
-            # Lấy các file sẽ bị xóa
+            # Truy vấn các bản ghi XML
             result = await session.execute(select(XmlFile).where(XmlFile.id.in_(id_array)))
             xml_files = result.scalars().all()
 
-            deleted_files = []
+            # --- Tìm đường dẫn file trong Git index ---
+            def find_file_path_in_repo(repo, filename: str) -> str:
+                for entry_path in repo.index.entries:
+                    if Path(entry_path).name == filename:
+                        return entry_path  # relative path từ repo root
+                return None
+
+            deleted_paths = []
+
             for xml_file in xml_files:
                 file_name = xml_file.filename or f"xml_{xml_file.id}.xml"
-                file_path = os.path.join(self.git.repo_path, file_name)
-
-                # Xóa file vật lý nếu tồn tại
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                    deleted_files.append(file_path)
+                relative_path = find_file_path_in_repo(self.git.repo, file_name)
+                if relative_path:
+                    full_path = os.path.join(self.git.repo_path, relative_path)
+                    if os.path.exists(full_path):
+                        os.remove(full_path)
+                        deleted_paths.append(relative_path)
 
             # Xóa bản ghi trong DB
             stmt = delete(XmlFile).where(XmlFile.id.in_(id_array))
             await session.execute(stmt)
             await session.commit()
 
-            # Remove khỏi Git + commit
-            if deleted_files:
-                self.git.repo.index.remove(deleted_files, working_tree=True)
+            # Xóa khỏi Git
+            if deleted_paths:
+                self.git.repo.index.remove(deleted_paths, working_tree=True)
                 self.git.repo.index.commit(f"Xóa file XML #{', '.join(map(str, id_array))}")
                 self.git.push_all()
 
@@ -241,7 +251,7 @@ class XmlService:
 
         except Exception as e:
             await session.rollback()
-            return self.error_response("Đã xảy ra lỗi: " + str(e))
+            return self.error_response(f"Đã xảy ra lỗi: {str(e)}")
 
     async def get_by_id(self, xml_file_id: int, session: AsyncSession = None):
         """
@@ -473,34 +483,34 @@ class XmlService:
         """
         repo_path = self.git.repo_path
         synced = []
+        for module in MODULE_CONFIGURATION_LIST:
+            for fname in os.listdir(repo_path + "/" + module):
+                if not fname.endswith(".xml"):
+                    continue
 
-        for fname in os.listdir(repo_path):
-            if not fname.endswith(".xml"):
-                continue
+                file_path = os.path.join(repo_path, module, fname)
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
 
-            file_path = os.path.join(repo_path, fname)
-            with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read()
+                stmt = select(XmlFile).where(XmlFile.filename == fname).limit(1)
+                result = await session.execute(stmt)
+                existing = result.scalars().first()
 
-            stmt = select(XmlFile).where(XmlFile.filename == fname).limit(1)
-            result = await session.execute(stmt)
-            existing = result.scalars().first()
-
-            if not existing:
-                system, sub_system, module_code, category = await self.extract_system_info(content)
-                new_file = XmlFile(
-                    filename=fname,
-                    content=content,
-                    system=system,
-                    sub_system=sub_system,
-                    module=module_code,
-                    category=category,
-                )
-                session.add(new_file)
-                synced.append(f"[+] {fname} added to DB")
-            elif existing.content.strip() != content.strip():
-                existing.content = content
-                synced.append(f"[~] {fname} updated in DB")
+                if not existing:
+                    system, sub_system, module_code, category = await self.extract_system_info(content)
+                    new_file = XmlFile(
+                        filename=fname,
+                        content=content,
+                        system=system,
+                        sub_system=sub_system,
+                        module=module_code,
+                        category=category,
+                    )
+                    session.add(new_file)
+                    synced.append(f"[+] {fname} added to DB")
+                elif existing.content.strip() != content.strip():
+                    existing.content = content
+                    synced.append(f"[~] {fname} updated in DB")
 
         await session.commit()
         return self.success_response("Đã sync Git → DB", {"synced": synced})

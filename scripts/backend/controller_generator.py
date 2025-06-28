@@ -168,6 +168,13 @@ class Field:
         rules = []
         file_rules = []
 
+        type = self.data.get("type")
+        type_value = type.strip()
+        if type_value == "date":
+            rules.append(f"\t\t\t\t\t'{type_value}': True")
+        if type_value == "datetime":
+            rules.append(f"\t\t\t\t\t'{type_value}': True")
+
         for attr in self.validated_attributes:
             raw_value = self.data.get(attr)
             if not raw_value or not raw_value.strip():
@@ -250,6 +257,7 @@ class Field:
             "email": "Trường này chưa đúng định dạng email",
             "url": "Trường này chưa đúng định dạng địa chỉ URL",
             "date": "Trường này chưa đúng định dạng (hoặc giá trị) ngày tháng (yyyy-mm-dd)",
+            "datetime": "Trường này chưa đúng định dạng (hoặc giá trị) ngày tháng và giờ phút (yyyy-mm-dd hh:mm:ss).",
             "number": "Trường này chưa đúng định dạng số",
             "digits": "Trường này chưa đúng định dạng chỉ gồm các chữ số.",
             "equalTo": "Trường này chưa đúng do không giống với trường {1}",
@@ -266,6 +274,13 @@ class Field:
 
         field_messages = []
         file_messages = []
+
+        type = self.data.get("type")
+        type_value = type.strip()
+        if type_value == "date":
+            field_messages.append(f"\t\t\t\t\t'{type_value}': '{messages[type_value]}'")
+        if type_value == "datetime":
+            field_messages.append(f"\t\t\t\t\t'{type_value}': '{messages[type_value]}'")
 
         for attr in self.validated_attributes:
             value = self.data.get(attr)

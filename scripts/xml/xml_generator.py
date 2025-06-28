@@ -7,10 +7,11 @@ import os
 
 TYPE_CONFIG = {
     "số nguyên lớn": "integer",
-    "text": "varchar",
+    "text": "text",
     "double": "float",
     "ký tự": "varchar",
-    "datetime": "date",
+    "datetime": "datetime",
+    "date": "date",
     "logic": "bool",
     "số thực": "float",
     "số nguyên": "integer",
@@ -92,6 +93,9 @@ class XmlGenerator:
                     fk = ET.SubElement(field_elem, "foreign_key")
                     fk.text = f"{val},id,code,name"
 
+                if tag == "type" and val.lower() == "date":
+                    ET.SubElement(field_elem, "date").text = "1"
+
         xml_bytes = ET.tostring(root, encoding="UTF-8")
         return minidom.parseString(xml_bytes).toprettyxml(indent="    ")
 
@@ -109,6 +113,7 @@ class XmlGenerator:
             )
             prefix = kw.get("system_code", "SYS").lower()
             clean_name = re.sub(r"^[0-9]+\.?\s*", "", sheet_name).lower()
+            clean_name = re.sub(f"{prefix}_", "", clean_name)
             # Tạm thời để tên là model nhưng về sau phải đổi từ request.
             model_name = f"{prefix}_{re.sub('.xlsx', '', clean_name)}"
             xml_string = self._dataframe_to_xml(df, model=model_name, kw=kw)
