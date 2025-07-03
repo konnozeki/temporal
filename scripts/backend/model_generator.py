@@ -234,7 +234,7 @@ class ModelGenerator:
 
                 item_name = item.get("name", "").strip().lower()
                 item_label = item.get("label", "").strip() if item.get("label") else item_name
-                is_unique = str(item.get("unique", "")).strip().lower() in ["1", "true"]
+                is_unique = str(item.get("unique", "")).strip().lower() in ["1", "true", "c", "đ", "yes", "y"]
                 is_primary = str(item.get("primary_key", "")).strip().lower() in ["1", "true"]
 
                 # Bỏ qua nếu không có name hoặc là id

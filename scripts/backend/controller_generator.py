@@ -200,7 +200,7 @@ class Field:
                 rules.append(f"\t\t\t\t\t'{attr}': '{cleaned_fk}'")
             elif attr in {"file.size", "file.type"} and self.is_file():
                 file_rules.append(f"\t\t\t\t\t'{attr}': '{value}'")
-            else:
+            elif is_true:
                 rules.append(f"\t\t\t\t\t'{attr}': {value}")
 
         if not rules:
@@ -287,7 +287,7 @@ class Field:
             if not value or not value.strip():
                 continue
 
-            is_true = value.strip() == "1" or value.strip().lower() == "true"
+            is_true = value == "1" or value.lower() == "true" or value.lower() == "t" or value.lower() == "c" or value.lower() == "đ"
             if attr in {"not_null", "unique", "email", "url", "date", "number", "digits"}:
                 if is_true:
                     field_messages.append(f'\t\t\t\t\t"{attr}" : "{messages[attr]}"')

@@ -93,8 +93,8 @@ class XmlGenerator:
                     fk = ET.SubElement(field_elem, "foreign_key")
                     fk.text = f"{val},id,code,name"
 
-                if tag == "type" and val.lower() == "date":
-                    ET.SubElement(field_elem, "date").text = "1"
+                # if tag == "type" and val.lower() == "date":
+                #     ET.SubElement(field_elem, "date").text = "1"
 
         xml_bytes = ET.tostring(root, encoding="UTF-8")
         return minidom.parseString(xml_bytes).toprettyxml(indent="    ")
