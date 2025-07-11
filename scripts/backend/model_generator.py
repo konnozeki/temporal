@@ -250,7 +250,7 @@ class ModelGenerator:
             if constraint_list:
                 # Dùng set để loại bỏ trùng lặp nếu có
                 result = f"""
-    \t_sql_constraints = [
+\t_sql_constraints = [
     {"".join(set(constraint_list))}
     \t]
     """
