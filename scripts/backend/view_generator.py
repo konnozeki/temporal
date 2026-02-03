@@ -45,7 +45,7 @@ class ViewGenerator:
         self.db_name = "nagaco"
         self.db_user = "odoo"
         self.db_password = "odoo17@2023"
-        self.db_host = "192.168.1.8"
+        self.db_host = "10.0.0.8"
         self.db_port = 5433
         self.model_name = self.xml_dict["root"]["model"]
         self.class_name = self.model_name.replace("_", " ").title().replace(" ", "_")
@@ -88,6 +88,7 @@ class {self.class_name}_View(models.Model):
 
 	def init(self):
 		self.env.cr.execute(\"\"\"
+            DROP VIEW IF EXISTS {self.model_name}_view;
 			CREATE OR REPLACE VIEW {self.model_name}_view AS
 			SELECT
 				source.id AS {self.object_name}_id,
@@ -181,7 +182,8 @@ WHERE
     u.column_name = 'id' AND
     u.table_catalog = 'nagaco' AND
     u.table_schema = 'public' AND
-    u.table_name = '{self.model_name}';
+    u.table_name = '{self.model_name}' AND
+    fk.delete_rule NOT IN ('CASCADE', 'SET NULL');
         """
 
         cursor.execute(sql_context)

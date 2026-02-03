@@ -20,6 +20,28 @@ class TypeAlias(Enum):
     file = "Char"
     image = "Char"
     smallint = "Integer"
+    json = "Json"
+    reference = "Reference"
+
+
+class PredefinedTypeAlias(Enum):
+    varchar = "str"
+    text = "str"
+    binary = "bool"
+    bool = "bool"
+    date = "date"
+    datetime = "datetime"
+    float = "float"
+    double = "float"
+    many2one = "Many2one"
+    integer = "int"
+    int = "int"
+    # file = 'File'
+    file = "str"
+    image = "str"
+    smallint = "int"
+    json = "dict | list"
+    reference = "str"
 
 
 class ModelGenerator:
@@ -144,7 +166,7 @@ class ModelGenerator:
                 alias = get_unique_alias(base_alias, reserved_keywords)
                 reserved_keywords.add(alias)
 
-                if foreign_key:
+                if foreign_key and field_type != "reference":
                     parts = [p.strip() for p in foreign_key.split(",")]
                     if len(parts) < 3:
                         raise ValueError("Định dạng 'foreign_key' phải là '<tên bảng>,<khóa>,<nhãn>'.")
@@ -234,7 +256,7 @@ class ModelGenerator:
 
                 item_name = item.get("name", "").strip().lower()
                 item_label = item.get("label", "").strip() if item.get("label") else item_name
-                is_unique = str(item.get("unique", "")).strip().lower() in ["1", "true"]
+                is_unique = str(item.get("unique", "")).strip().lower() in ["1", "true", "c", "đ", "yes", "y"]
                 is_primary = str(item.get("primary_key", "")).strip().lower() in ["1", "true"]
 
                 # Bỏ qua nếu không có name hoặc là id
@@ -250,7 +272,7 @@ class ModelGenerator:
             if constraint_list:
                 # Dùng set để loại bỏ trùng lặp nếu có
                 result = f"""
-    \t_sql_constraints = [
+\t_sql_constraints = [
     {"".join(set(constraint_list))}
     \t]
     """
@@ -322,7 +344,7 @@ class ModelGenerator:
                 default = "" if default == "\\0" else default
                 max_length = item.get("max_length", "").strip()
                 range_length = item.get("range_length", "").strip()
-                foreign_key = item.get("foreign_key", "").strip()
+                foreign_key = item.get("foreign_key", "").strip() or item.get("reference", "").strip()
                 compute = item.get("compute")
                 ondelete = item.get("ondelete", "no action").strip()
 
@@ -358,7 +380,18 @@ class ModelGenerator:
                         compute_args.append("store=True")
                     else:
                         compute_args.append("store=False")
-                    field_line = f"\t{name} = fields.{TypeAlias[field_type].value}({', '.join(compute_args)})"
+                    field_line = f"\t{name}: {PredefinedTypeAlias[field_type].value} = fields.{TypeAlias[field_type].value}({', '.join(compute_args)})"
+                    model_lines.append(field_line)
+                    continue
+
+                # Reference
+                if field_type == "reference" and foreign_key:
+                    foreign_key_list = [part.strip() for part in foreign_key.split(",")]
+                    choices = ", ".join([f"('{part}', '{part}')" for part in foreign_key_list])
+                    models = [f"'A.{part.replace('_', ' ').title().replace(' ', '_')}'" for part in foreign_key_list]
+                    print(choices, "choices")
+                    args_joined = ", ".join(args)
+                    field_line = f"\t{name}: { '|'.join(models) } = fields.{TypeAlias[field_type].value}([{choices}], {args_joined})"
                     model_lines.append(field_line)
                     continue
 
@@ -367,24 +400,25 @@ class ModelGenerator:
                     fk_parts = [part.strip() for part in foreign_key.split(",")]
                     if len(fk_parts) < 3:
                         raise Exception("Khóa ngoại sai định dạng: '<table>, <field>, <label>'.")
-                    related_model = fk_parts[0].lower()
+                    related_model: str = fk_parts[0].lower()
+                    model = related_model.replace("_", " ").title().replace(" ", "_")
                     fk_args = [f"ondelete='{ondelete}'", "index=True"] + args
-                    field_line = f"\t{name} = fields.Many2one('{related_model}', {', '.join(fk_args)})"
+                    field_line = f"\t{name}: 'A.{model}' = fields.Many2one('{related_model}', {', '.join(fk_args)})"
                     model_lines.append(field_line)
                     continue
 
                 # File/image
                 if field_type in ["file", "image"]:
-                    field_line = f"\t{name} = fields.{TypeAlias[field_type].value}({', '.join(args)})"
+                    field_line = f"\t{name}: {PredefinedTypeAlias[field_type].value} = fields.{TypeAlias[field_type].value}({', '.join(args)})"
                     model_lines.append(field_line)
                     continue
 
                 # Normal field
-                field_line = f"\t{name} = fields.{TypeAlias[field_type].value}({', '.join(args)})"
+                field_line = f"\t{name}: {PredefinedTypeAlias[field_type].value} = fields.{TypeAlias[field_type].value}({', '.join(args)})"
                 model_lines.append(field_line)
 
             default_active = 0 if self.model_name in self.approval_list else 1
-            model_lines.append(f"\tactive = fields.Boolean(string='Trạng thái', default={default_active})")
+            model_lines.append(f"\tactive: bool = fields.Boolean(string='Trạng thái', default={default_active})")
 
             return "\n".join(model_lines)
 
@@ -461,9 +495,12 @@ class ModelGenerator:
         """
 
         str_return = f"""
+from __future__ import annotations
 from enum import Enum
 from odoo import models, fields
-from ..config.config import *
+from ...config.config import *
+from . import annotations as A
+from datetime import date, datetime
 
 {self.create_column_alias()}
 {self.create_column_label()}

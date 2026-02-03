@@ -9,7 +9,7 @@ import xmltodict
 from .git_service import GitService
 import os
 
-MODULE_CONFIGURATION_LIST = ["fob", "hrm", "fin"]
+MODULE_CONFIGURATION_LIST = ["fob", "hrm", "fin", "re", "util", "mes"]
 
 
 class XmlService:
@@ -40,7 +40,11 @@ class XmlService:
     """
 
     def __init__(self):
-        self.git = GitService(repo_path="./xml_repo", remote_url="https://git.trianh.dev/viettt/xml-management.git", token="")
+        remote_url = os.getenv("GIT_REPO_URL", "").strip()
+        token = os.getenv("GIT_ACCESS_TOKEN", "").strip()
+        if not remote_url:
+            raise ValueError("GIT_REPO_URL is not set")
+        self.git = GitService(repo_path="./xml_repo", remote_url=remote_url, token=token)
 
     async def extract_system_info(self, xml_content: str):
         """
@@ -50,7 +54,7 @@ class XmlService:
         """
         try:
             root = ET.fromstring(xml_content)
-            return root.attrib.get("system_code"), root.attrib.get("sub_system_code"), root.attrib.get("module_code"), root.attrib.get("module")
+            return root.find("system_code").text, root.find("sub_system_code").text, root.find("module_code").text, root.find("module").text
         except:
             return None, None, None, None
 
@@ -129,6 +133,10 @@ class XmlService:
         """
         stmt = select(XmlFile.id, XmlFile.filename).order_by(XmlFile.created_at.desc())
         result = await session.execute(stmt)
+
+        # delete_stmt = delete(XmlFile).where(1 == 1)
+        # await session.execute(delete_stmt)
+        # await session.commit()
         records = result.all()
         files = [{"id": row.id, "filename": row.filename} for row in records]
         return self.success_response(data=files)
@@ -221,8 +229,10 @@ class XmlService:
             # --- Tìm đường dẫn file trong Git index ---
             def find_file_path_in_repo(repo, filename: str) -> str:
                 for entry_path in repo.index.entries:
-                    if Path(entry_path).name == filename:
-                        return entry_path  # relative path từ repo root
+                    # GitPython index.entries keys are (path, stage)
+                    entry_rel_path = entry_path[0]
+                    if Path(entry_rel_path).name == filename:
+                        return entry_rel_path  # relative path từ repo root
                 return None
 
             deleted_paths = []
@@ -359,7 +369,7 @@ class XmlService:
 
         # Ghi file XML ra Git sau khi commit DB
         file_name = obj.filename or f"xml_{obj.id}.xml"
-        file_path = self.git.write_file(content_id=str(obj.id), filename=file_name, content=obj.content, system=obj.system.lower())
+        file_path = self.git.write_file(content_id=str(obj.id), filename=file_name, content=obj.content, system=obj.system.lower() if obj.system else file_name.split("_")[0].lower())
         self.git.commit_and_tag(file_path, f"Cập nhật file XML #{obj.id}", tag_name=None)
         self.git.push_all()
 
@@ -481,6 +491,9 @@ class XmlService:
         - Trả về:
             + Phản hồi thành công với danh sách các file đã được thêm mới (`[+]`) hoặc cập nhật (`[~]`) trong DB.
         """
+        await session.execute(delete(XmlFile))
+        await session.commit()
+
         repo_path = self.git.repo_path
         synced = []
         for module in MODULE_CONFIGURATION_LIST:

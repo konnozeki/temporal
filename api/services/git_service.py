@@ -50,6 +50,8 @@ class GitService:
         - Nếu là GitLab, sử dụng định dạng `https://oauth2:TOKEN@` để xác thực.
         - Nếu là GitHub, sử dụng định dạng `https://TOKEN@`.
         """
+        if not token:
+            return remote_url
         # Nếu là GitLab: https://gitlab.com/user/repo.git → https://oauth2:TOKEN@gitlab.com/user/repo.git
         if "github" not in remote_url:
             return remote_url.replace("https://", f"https://oauth2:{token}@")

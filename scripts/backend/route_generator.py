@@ -97,15 +97,17 @@ class RouteGenerator:
         """
         str_route = f"""
 from odoo import http
-from ..config import config as me
-from ..controllers.{self.model_name}_controller import {self.class_name}_API
-from ..middleware.authentication import Authentication
-from .base_class.nagaco_route import Nagaco_Route
+from ...config import config as me
+from ...controllers.implemented_class.{self.model_name}_controller import {self.class_name}_API
+from ...middleware.authentication import Authentication
+from ..base_class.nagaco_route import Nagaco_Route
 
 
 class {self.class_name}_Router(http.Controller):
     def __init__(self):
         self.base_route = Nagaco_Route(me.SYS_CODE, "{self.sub_system_code}", "{self.module_code}", {self.class_name}_API())
+        self.AUTH_MODE = self.base_route.AUTH_MODE
+        self.ACTION_CODE = self.base_route.ACTION_CODE
 
     @http.route(['/api/{self.model_name}'], type='http', auth="none", methods=['GET'], sitemap=me.sitemap, cors=me.cors, csrf=me.csrf)
     def get_all(self, **kw):

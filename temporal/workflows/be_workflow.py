@@ -59,6 +59,11 @@ class BeCodeGenerationWorkflow:
         self.init_view_string = ""
         self.init_controller_string = ""
         self.init_model_string = ""
+        self.annotation_string = """from __future__ import annotations
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+"""
 
     @workflow.run
     async def run(self, template_contents, kw={}):
@@ -81,7 +86,7 @@ class BeCodeGenerationWorkflow:
                         raise ValueError(f"Content of {model['filename']} is not a valid byte string", type(model["content"]))
 
                     xml_dict = xmltodict.parse(content)
-                    model_name = xml_dict["root"]["model"].strip()
+                    model_name: str = xml_dict["root"]["model"].strip()
 
                     # Logging thông tin để theo dõi
                     workflow.logger.info(f"Processing model: {model_name}")
@@ -96,6 +101,8 @@ class BeCodeGenerationWorkflow:
                         self.init_view_string += f"from . import {model_name}_view\n"
                         self.init_controller_string += f"from . import {model_name}_controller\n"
                         self.init_model_string += f"from . import {model_name}_model\n"
+                        class_string = model_name.replace("_", " ").title().replace(" ", "_")
+                        self.annotation_string += f"\tfrom .{model_name}_model import {class_string}\n"
                     except Exception as e:
                         workflow.logger.error(f"Error during activity execution: {e}")
                         raise
@@ -110,6 +117,7 @@ class BeCodeGenerationWorkflow:
                 zip_file.writestr(f"route/__init__.py", self.init_route_string)
                 zip_file.writestr(f"model/__init__.py", self.init_model_string)
                 zip_file.writestr(f"model/view/__init__.py", self.init_view_string)
+                zip_file.writestr(f"model/annotations.py", self.annotation_string)
             # Lấy nội dung zip và trả về kết quả
             zip_buffer.seek(0)
             zip_content = zip_buffer.getvalue()

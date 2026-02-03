@@ -16,6 +16,8 @@ class TypeAlias(Enum):
     file = "Char"
     image = "Char"
     smallint = "Integer"
+    json = "Json"
+    reference = "Reference"
 
 
 class Field:
@@ -174,6 +176,10 @@ class Field:
             rules.append(f"\t\t\t\t\t'{type_value}': True")
         if type_value == "datetime":
             rules.append(f"\t\t\t\t\t'{type_value}': True")
+        if type_value == "json":
+            rules.append(f"\t\t\t\t\t'{type_value}': True")
+        if type_value == "reference":
+            rules.append(f"\t\t\t\t\t'{type_value}': self.modelName")
 
         for attr in self.validated_attributes:
             raw_value = self.data.get(attr)
@@ -200,7 +206,7 @@ class Field:
                 rules.append(f"\t\t\t\t\t'{attr}': '{cleaned_fk}'")
             elif attr in {"file.size", "file.type"} and self.is_file():
                 file_rules.append(f"\t\t\t\t\t'{attr}': '{value}'")
-            else:
+            elif is_true:
                 rules.append(f"\t\t\t\t\t'{attr}': {value}")
 
         if not rules:
@@ -266,6 +272,8 @@ class Field:
             "unique": "Trường này không được trùng nhau.",
             "foreign_key": "Giá trị này không hợp lệ.",
             "regexp": "Trường này định dạng chưa đúng.",
+            "json": "Trường này chưa đúng định dạng JSON.",
+            "reference": "Giá trị tham chiếu này không hợp lệ.",
         }
 
         name = self.data.get("name", "").strip().lower()
@@ -281,13 +289,17 @@ class Field:
             field_messages.append(f"\t\t\t\t\t'{type_value}': '{messages[type_value]}'")
         if type_value == "datetime":
             field_messages.append(f"\t\t\t\t\t'{type_value}': '{messages[type_value]}'")
+        if type_value == "json":
+            field_messages.append(f"\t\t\t\t\t'{type_value}': '{messages[type_value]}'")
+        if type_value == "reference":
+            field_messages.append(f"\t\t\t\t\t'{type_value}': '{messages[type_value]}'")
 
         for attr in self.validated_attributes:
             value = self.data.get(attr)
             if not value or not value.strip():
                 continue
 
-            is_true = value.strip() == "1" or value.strip().lower() == "true"
+            is_true = value == "1" or value.lower() == "true" or value.lower() == "t" or value.lower() == "c" or value.lower() == "đ"
             if attr in {"not_null", "unique", "email", "url", "date", "number", "digits"}:
                 if is_true:
                     field_messages.append(f'\t\t\t\t\t"{attr}" : "{messages[attr]}"')
@@ -318,7 +330,7 @@ class Field:
             + Chuỗi rỗng nếu không có liên kết.
         """
         fk = self.data.get("foreign_key", "")
-        if fk and fk.strip():
+        if fk and fk.strip() and self.data.get("name", "").lower() != TypeAlias.reference.value.lower():
             return self.data.get("name", "").strip()
         return ""
 
@@ -593,12 +605,12 @@ class ControllerGenerator:
 import json
 import re
 from odoo.http import Response, request
-from .base_class.nagaco_controller import Nagaco_Controller
+from ..base_class.nagaco_controller import Nagaco_Controller
 
-from ..helper.validator import Validator
-from ..models.{self.module_name}_model import {self.class_name}Alias2Fields, {self.class_name}Fields2Labels
-from ..helper.serializer import Serializer
-from ..helper.normalizer import Normalizer
+from ...helper.validator import Validator
+from ...models.implemented_class.{self.module_name}_model import {self.class_name}Alias2Fields, {self.class_name}Fields2Labels
+from ...helper.serializer import Serializer
+from ...helper.normalizer import Normalizer
 
 class {self.class_name}_API(Nagaco_Controller):
     def __init__(self):

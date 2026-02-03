@@ -101,7 +101,23 @@ export const {object_name}Service = new {class_name}Service();
         ### Trả về:
         - Chuỗi code định nghĩa hàm `prepareFormData` cho class.
         """
-        body_lines = [f"        if (request.{field['name']} !== null && request.{field['name']} !== undefined) bodyFormData.append('{field['name']}', " + ("(request.{field['name']} === true ? 1 : 0)" if field["type"].strip() == "bool" else f"request.{field['name']}") + ");" for field in fields if field and field["name"].strip() not in auto_generate_fields and field["name"].strip() != "id"]
+        body_lines = []
+
+        for field in fields:
+            name = field.get("name", "").strip()
+            field_type = field.get("type", "").strip()
+
+            if not field or name in auto_generate_fields or name == "id":
+                continue
+
+            if field_type == "bool":
+                line = f"        if (request.{name} !== null && request.{name} !== undefined) " f"bodyFormData.append('{name}', (request.{name} === true ? 1 : 0));"
+            elif field_type in ["file", "image"]:
+                line = f"        if (request.{name} !== null && request.{name} !== undefined) " f"bodyFormData.append('{name}', request.{name});\n        if (request.f{name} !== null && request.f{name} !== undefined) " f"bodyFormData.append('f{name}', request.f{name});"
+            else:
+                line = f"        if (request.{name} !== null && request.{name} !== undefined) " f"bodyFormData.append('{name}', request.{name});"
+
+            body_lines.append(line)
         return f"""
     prepareFormData = (request = {{}}) => {{
         var bodyFormData = new FormData();
