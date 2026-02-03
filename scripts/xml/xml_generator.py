@@ -17,6 +17,9 @@ TYPE_CONFIG = {
     "số nguyên": "integer",
     "file": "file",
     "image": "file",
+    "đa hình": "reference",
+    "reference": "reference",
+    "json": "json",
 }
 
 NOT_NULL_CONFIG = {
@@ -53,29 +56,43 @@ class XmlGenerator:
         ET.SubElement(root, "sub_system_code").text = sub_system_code
         ET.SubElement(root, "module").text = module.lower()
         ET.SubElement(root, "module_code").text = module_code
-
         ET.SubElement(root, "model").text = model.lower()
-        ET.SubElement(root, "searchable_list").text = "code,name"
         ET.SubElement(root, "default_order").text = "id"
 
         fields_elem = ET.SubElement(root, "fields")
+        searchable_list = []
+        auto_searchable_list = []
 
         for _, row in df.iterrows():
-            name = row.get("Name")
+            # Chuẩn hóa tất cả key về lowercase
+            row = {str(k).strip().lower(): v for k, v in row.items()}
+
+            name = row.get("name")
             if not name or pd.isna(name) or str(name).strip() == "" or name in SKIP_FIELDS:
                 continue
 
             name = str(name).strip()
+
+            # Check if field is searchable
+            searchable_val = str(row.get("searchable", "")).lower().strip()
+            if searchable_val in {"1", "c", "t", "d"}:
+                searchable_list.append(name)
+
+            # Prepare fallback searchable list based on mapped type
+            raw_type = row.get("type", "")
+            mapped_type = TYPE_CONFIG.get(str(raw_type).strip().lower(), "varchar")
+            if mapped_type in {"varchar", "text"}:
+                auto_searchable_list.append(name)
+
             field_elem = ET.SubElement(fields_elem, "field")
 
             if name == "id":
                 ET.SubElement(field_elem, "primary_key").text = "1"
 
-            for col_name, value in row.items():
-                if col_name == "Index" or pd.isna(value):
+            for tag, value in row.items():
+                if tag == "index" or pd.isna(value):
                     continue
 
-                tag = col_name.lower()
                 val = str(value).strip()
 
                 match tag:
@@ -89,12 +106,15 @@ class XmlGenerator:
                 elem = ET.SubElement(field_elem, tag)
                 elem.text = escape(val)
 
-                if tag == "reference" and val.lower() != "khóa chính":
+                if tag == "reference" and val.lower() != "khóa chính" and "," not in val:
+                    serialized_val = row.get("serialized_field", "id,code,name")
+                    serialized_val = str(serialized_val).strip() if serialized_val and not pd.isna(serialized_val) else "id,code,name"
                     fk = ET.SubElement(field_elem, "foreign_key")
-                    fk.text = f"{val},id,code,name"
+                    fk.text = f"{val},{serialized_val}"
 
-                if tag == "type" and val.lower() == "date":
-                    ET.SubElement(field_elem, "date").text = "1"
+        if not searchable_list:
+            searchable_list = auto_searchable_list
+        ET.SubElement(root, "searchable_list").text = ",".join(searchable_list)
 
         xml_bytes = ET.tostring(root, encoding="UTF-8")
         return minidom.parseString(xml_bytes).toprettyxml(indent="    ")
@@ -111,11 +131,24 @@ class XmlGenerator:
                 axis=1,
                 inplace=True,
             )
+            model_name_from_col = None
+            model_name_col = None
+            for col in df.columns:
+                if str(col).strip().lower() == "model_name":
+                    model_name_col = col
+                    break
+            if model_name_col is not None:
+                non_null = df[model_name_col].dropna()
+                if not non_null.empty:
+                    candidate = str(non_null.iloc[0]).strip()
+                    if candidate:
+                        model_name_from_col = candidate.lower()
+                df.drop(columns=[model_name_col], inplace=True)
             prefix = kw.get("system_code", "SYS").lower()
             clean_name = re.sub(r"^[0-9]+\.?\s*", "", sheet_name).lower()
             clean_name = re.sub(f"{prefix}_", "", clean_name)
             # Tạm thời để tên là model nhưng về sau phải đổi từ request.
-            model_name = f"{prefix}_{re.sub('.xlsx', '', clean_name)}"
+            model_name = model_name_from_col or f"{prefix}_{re.sub('.xlsx', '', clean_name)}"
             xml_string = self._dataframe_to_xml(df, model=model_name, kw=kw)
             result[model_name] = xml_string
 
