@@ -10,6 +10,7 @@ fe_activities = [
     generate_menu,
     generate_configuration,
     generate_i18n,
+    generate_validator,
 ]
 be_activities = [
     generate_model,

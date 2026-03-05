@@ -4,6 +4,7 @@ from scripts.frontend.i18n_generator import I18nGenerator
 from scripts.frontend.service_generator import ServiceGenerator
 from scripts.frontend.navigation_generator import NavigationGenerator
 from scripts.frontend.configuration_generator import ConfigurationGenerator
+from scripts.frontend.validator_generator import ValidatorGenerator
 
 
 # Các hoạt động cho FE
@@ -35,3 +36,9 @@ async def generate_menu(xml_dict, module_name="categories"):
 async def generate_configuration(xml_dict, module_name="categories"):
     # Sinh config
     return ConfigurationGenerator(xml_dict).generate()
+
+
+@activity.defn
+async def generate_validator(xml_dict):
+    # Sinh validator JSON từ XML
+    return ValidatorGenerator(xml_dict).generate()

@@ -4,8 +4,7 @@ import base64
 import xmltodict
 from temporalio import workflow
 from datetime import timedelta
-from ..activities.fe_generator import generate_column_setting, generate_i18n, generate_menu, generate_service, generate_configuration
-import asyncio
+from ..activities.fe_generator import generate_column_setting, generate_i18n, generate_menu, generate_service, generate_configuration, generate_validator
 
 
 @workflow.defn(sandboxed=False)
@@ -93,6 +92,7 @@ class FeCodeGenerationWorkflow:
                         column_setting_string = await workflow.execute_activity(generate_column_setting, xml_dict, start_to_close_timeout=timedelta(seconds=30))
                         service_string = await workflow.execute_activity(generate_service, args=[model_name, xml_dict], start_to_close_timeout=timedelta(seconds=30))
                         translation_string_vi, translation_string_en = await workflow.execute_activity(generate_i18n, xml_dict, start_to_close_timeout=timedelta(seconds=30))
+                        validator_json = await workflow.execute_activity(generate_validator, xml_dict, start_to_close_timeout=timedelta(seconds=30))
                         # service_string, translation_string_vi, translation_string_en = "", "", ""
                     except Exception as e:
                         workflow.logger.error(f"Error during activity execution: {e}")
@@ -104,6 +104,7 @@ class FeCodeGenerationWorkflow:
                     zip_file.writestr(f"services/{class_file_prefix}Service.js", service_string)
                     zip_file.writestr(f"translations/{model_name}/vi.json", translation_string_vi)
                     zip_file.writestr(f"translations/{model_name}/en.json", translation_string_en)
+                    zip_file.writestr(f"validator/{model_name}.json", validator_json)
 
                     # Xử lý navigation và configuration
                     try:

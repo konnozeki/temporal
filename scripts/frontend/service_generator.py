@@ -4,7 +4,6 @@ class ServiceGenerator:
     kế thừa từ một service gốc theo hệ thống, phục vụ cho việc gọi API và xử lý dữ liệu form.
 
     ### Mục đích:
-    - Tự động hóa việc tạo các phương thức gọi API `getBy<ForeignKey>`, `getCountBy<ForeignKey>`.
     - Sinh hàm `prepareFormData` chuẩn hóa dữ liệu trước khi gửi lên server.
     - Đảm bảo đồng bộ cấu trúc frontend theo metadata được khai báo trong XML.
 
@@ -25,9 +24,7 @@ class ServiceGenerator:
 
         ### Hoạt động:
         - Tạo tên class chuẩn (`FinSuIncrementService`) và object export (`finSuIncrementService`).
-        - Sinh các hàm phụ trợ để:
-            + Gọi API theo foreign key.
-            + Gửi form data đã chuẩn hóa (hàm `prepareFormData`).
+        - Sinh hàm phụ trợ gửi form data đã chuẩn hóa (`prepareFormData`).
         - Lọc các trường `auto_generate` để loại khỏi phần form gửi.
 
         ### Trả về:
@@ -42,7 +39,6 @@ class ServiceGenerator:
             if not isinstance(fields, list):
                 fields = [fields]
 
-            foreign_keys = list(set([field["name"].replace("_id", "") for field in fields if "foreign_key" in field and field["foreign_key"] for fk in field["foreign_key"].strip().split(",")]))
             auto_generate_fields = [field["name"] for field in fields if field.get("auto_generate") == "1"]
 
             return f"""import {service_prefix}Service from "./{service_prefix}Service";
@@ -53,7 +49,6 @@ class {class_name}Service extends {service_prefix}Service {{
     constructor() {{
         super(MODEL);
     }}
-{self._generate_foreign_key_methods(foreign_keys)}
 {self._generate_prepare_form_data(fields, auto_generate_fields)}
 }}
 
@@ -61,29 +56,6 @@ export const {object_name}Service = new {class_name}Service();
 """
         except Exception as e:
             return str(e)
-
-    def _generate_foreign_key_methods(self, foreign_keys):
-        """
-        Sinh hàm `getBy<ForeignKey>` và `getCountBy<ForeignKey>` cho từng trường liên kết.
-
-        ### Đầu vào:
-        - `foreign_keys` (List[str]): Danh sách các trường khóa ngoại (đã loại `_id`).
-
-        ### Đầu ra:
-        - Chuỗi các hàm dùng để gọi API theo foreign key (được nhúng vào trong class).
-        """
-        return "\n".join(
-            f"""
-    getBy{fk.title().replace("_", "")} = (request = {{}}) => {{
-        return this.getByForeignKey('{fk}', request);
-    }}
-
-    getCountBy{fk.title().replace("_", "")} = (request = {{}}) => {{
-        return this.getCountByForeignKey('{fk}', request);
-    }}
-"""
-            for fk in foreign_keys
-        )
 
     def _generate_prepare_form_data(self, fields, auto_generate_fields):
         """
