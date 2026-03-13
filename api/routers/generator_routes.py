@@ -1,7 +1,7 @@
 # generator_route.py
 from fastapi import APIRouter, File, UploadFile, Depends, Request, Body
-from typing import List, Dict
-from ..services.generator_service import start_generate, download_result, get_all_workflows, get_workflows_by_page, start_raw_generate
+from typing import Any, List
+from ..services.generator_service import start_generate, download_result, get_all_workflows, get_workflows_by_page, start_raw_generate, get_workflow_result
 from ..utils import get_client
 from temporalio.client import Client
 
@@ -14,8 +14,11 @@ async def generate_fe(templates: List[UploadFile] = File(...), client: Client = 
 
 
 @router.post("/generate_be/")
-async def generate_be(templates: List[UploadFile] = File(...), client: Client = Depends(get_client)):
-    return await start_generate(templates, "BE", client=client)
+async def generate_be(templates: List[UploadFile] = File(...), client: Client = Depends(get_client), request: Request = None):
+    form = await request.form()
+    kwargs = dict(form)
+    kwargs = {k: v for k, v in kwargs.items() if k not in ["templates", "client"]}
+    return await start_generate(templates, "BE", client=client, kw=kwargs)
 
 
 @router.post("/generate_ut/")
@@ -29,8 +32,13 @@ async def generate_raw_fe(templates: List[dict] = Body(...), client: Client = De
 
 
 @router.post("/generate_raw_be/")
-async def generate_raw_be(templates: List[dict] = Body(...), client: Client = Depends(get_client)):
-    return await start_raw_generate(templates, "BE", client=client)
+async def generate_raw_be(body: Any = Body(...), client: Client = Depends(get_client)):
+    templates = body
+    kwargs = {}
+    if isinstance(body, dict):
+        templates = body.get("templates", body.get("template", []))
+        kwargs = body.get("kw", {})
+    return await start_raw_generate(templates, "BE", client=client, kw=kwargs)
 
 
 @router.post("/generate_raw_ut/")
@@ -49,6 +57,11 @@ async def generate_xml(excel_files: List[UploadFile] = File(...), client: Client
 @router.get("/download/{workflow_id}")
 async def download_file(workflow_id: str, client=Depends(get_client)):
     return await download_result(workflow_id, client=client)
+
+
+@router.get("/result/{workflow_id}")
+async def workflow_result(workflow_id: str, client=Depends(get_client)):
+    return await get_workflow_result(workflow_id, client=client)
 
 
 @router.get("/workflows")

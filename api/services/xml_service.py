@@ -2,12 +2,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import case, not_, func, delete
 from fastapi import UploadFile, File
+from temporalio.client import Client
 from db.models import XmlFile
-from pathlib import Path
 import xml.etree.ElementTree as ET
 import xmltodict
-from .git_service import GitService
 import os
+
+from .git_service import get_git_service
+from .git_sync_service import enqueue_git_sync
 
 MODULE_CONFIGURATION_LIST = ["fob", "hrm", "fin", "re", "util", "mes"]
 
@@ -40,11 +42,7 @@ class XmlService:
     """
 
     def __init__(self):
-        remote_url = os.getenv("GIT_REPO_URL", "").strip()
-        token = os.getenv("GIT_ACCESS_TOKEN", "").strip()
-        if not remote_url:
-            raise ValueError("GIT_REPO_URL is not set")
-        self.git = GitService(repo_path="./xml_repo", remote_url=remote_url, token=token)
+        self.git = None
 
     async def extract_system_info(self, xml_content: str):
         """
@@ -81,7 +79,7 @@ class XmlService:
         """
         return {"status": "error", "code": code, "message": message}
 
-    async def handle_uploaded_xml_files(self, files, session: AsyncSession):
+    async def handle_uploaded_xml_files(self, files, session: AsyncSession, client: Client = None):
         """
         Xử lý các file XML được tải lên, lưu vào cơ sở dữ liệu và ghi vào Git repository.
         - Các tham số
@@ -93,28 +91,17 @@ class XmlService:
         """
         try:
             results = []
-            written_files = []
             for file in files:
                 content = await file.read()
                 content_decoded = content.decode()
                 system, sub_system, module_code, category = await self.extract_system_info(content_decoded)
-                # Tạo bản ghi DB
                 xml_file = XmlFile(filename=file.filename, system=system, sub_system=sub_system, content=content_decoded, module=module_code, category=category)
                 session.add(xml_file)
-                await session.flush()  # để lấy xml_file.id
-                # Ghi file vào Git repo
-                file_name = xml_file.filename or f"xml_{xml_file.id}.xml"
-                file_path = self.git.write_file(content_id=str(xml_file.id), filename=file_name, content=xml_file.content, system=xml_file.system.lower())
-                written_files.append(file_path)
                 results.append(file.filename)
             await session.commit()
-            # Commit và push Git nếu có file
-            if written_files:
-                self.git.repo.index.add(written_files)
-                self.git.repo.index.commit(f"Tải lên {len(written_files)} file XML: {', '.join(results)}")
-                self.git.push_all()
+            workflow_id = await self._enqueue_db_to_git_sync(client)
 
-            return self.success_response("Tải dữ liệu lên thành công", {"uploaded": results})
+            return self.success_response("Tải dữ liệu lên thành công", {"uploaded": results, "workflow_id": workflow_id})
 
         except Exception as e:
             await session.rollback()
@@ -222,40 +209,9 @@ class XmlService:
             if not id_array:
                 return self.error_response("Không có ID hợp lệ nào", 603)
 
-            # Truy vấn các bản ghi XML
-            result = await session.execute(select(XmlFile).where(XmlFile.id.in_(id_array)))
-            xml_files = result.scalars().all()
-
-            # --- Tìm đường dẫn file trong Git index ---
-            def find_file_path_in_repo(repo, filename: str) -> str:
-                for entry_path in repo.index.entries:
-                    # GitPython index.entries keys are (path, stage)
-                    entry_rel_path = entry_path[0]
-                    if Path(entry_rel_path).name == filename:
-                        return entry_rel_path  # relative path từ repo root
-                return None
-
-            deleted_paths = []
-
-            for xml_file in xml_files:
-                file_name = xml_file.filename or f"xml_{xml_file.id}.xml"
-                relative_path = find_file_path_in_repo(self.git.repo, file_name)
-                if relative_path:
-                    full_path = os.path.join(self.git.repo_path, relative_path)
-                    if os.path.exists(full_path):
-                        os.remove(full_path)
-                        deleted_paths.append(relative_path)
-
-            # Xóa bản ghi trong DB
             stmt = delete(XmlFile).where(XmlFile.id.in_(id_array))
             await session.execute(stmt)
             await session.commit()
-
-            # Xóa khỏi Git
-            if deleted_paths:
-                self.git.repo.index.remove(deleted_paths, working_tree=True)
-                self.git.repo.index.commit(f"Xóa file XML #{', '.join(map(str, id_array))}")
-                self.git.push_all()
 
             return self.success_response("Xóa dữ liệu thành công", id_array)
 
@@ -303,7 +259,7 @@ class XmlService:
         except Exception as e:
             return self.error_response("Đã xảy ra lỗi " + str(e))
 
-    async def create_xml_file(self, request: dict = {}, session: AsyncSession = None):
+    async def create_xml_file(self, request: dict = {}, session: AsyncSession = None, client: Client = None):
         """
         Tạo mới một bản ghi file XML từ dữ liệu đầu vào và ghi nội dung vào Git repository.
 
@@ -324,19 +280,13 @@ class XmlService:
             xml_file = XmlFile(**request)
             session.add(xml_file)
             await session.commit()
-            await session.refresh(xml_file)
+            workflow_id = await self._enqueue_db_to_git_sync(client)
 
-            # Ghi file XML ra Git sau khi commit DB
-            file_name = xml_file.filename or f"xml_{xml_file.id}.xml"
-            file_path = self.git.write_file(content_id=str(xml_file.id), filename=file_name, content=xml_file.content, system=xml_file.system.lower())
-            self.git.commit_and_tag(file_path, f"Tạo file XML #{xml_file.id}", tag_name=None)
-            self.git.push_all()
-
-            return self.success_response("Tạo bản ghi thành công", request)
+            return self.success_response("Tạo bản ghi thành công", {**request, "workflow_id": workflow_id})
         except Exception as e:
             return self.error_response(f"Tạo bản ghi thất bại: {str(e)}")
 
-    async def update_xml_file(self, id: int, request: dict = {}, session: AsyncSession = None):
+    async def update_xml_file(self, id: int, request: dict = {}, session: AsyncSession = None, client: Client = None):
         """
         Cập nhật nội dung một bản ghi file XML và đồng bộ thay đổi với Git repository.
 
@@ -365,15 +315,9 @@ class XmlService:
                 setattr(obj, key, value)
 
         await session.commit()
-        await session.refresh(obj)
+        workflow_id = await self._enqueue_db_to_git_sync(client)
 
-        # Ghi file XML ra Git sau khi commit DB
-        file_name = obj.filename or f"xml_{obj.id}.xml"
-        file_path = self.git.write_file(content_id=str(obj.id), filename=file_name, content=obj.content, system=obj.system.lower() if obj.system else file_name.split("_")[0].lower())
-        self.git.commit_and_tag(file_path, f"Cập nhật file XML #{obj.id}", tag_name=None)
-        self.git.push_all()
-
-        return self.success_response("Cập nhật dữ liệu thành công", obj)
+        return self.success_response("Cập nhật dữ liệu thành công", {"id": obj.id, "workflow_id": workflow_id})
 
     def extract_metadata(self, xml_dict: dict) -> dict:
         """
@@ -394,7 +338,7 @@ class XmlService:
         root = xml_dict["root"]
         return {"system": root.get("system_code"), "sub_system": root.get("sub_system_code"), "module": root.get("module_code"), "category": root.get("module")}
 
-    async def import_file(self, files: list[UploadFile] = File(...), session: AsyncSession = None):
+    async def import_file(self, files: list[UploadFile] = File(...), session: AsyncSession = None, client: Client = None):
         """
         Nhập khẩu danh sách các file XML vào hệ thống, cho phép cập nhật nếu đã tồn tại hoặc tạo mới nếu chưa có.
 
@@ -415,7 +359,6 @@ class XmlService:
             + Một danh sách phản hồi cho từng file với thông tin: `filename`, `status` (`imported`, `updated`, `skipped`, `error`), và `id` nếu thành công.
         """
         results = []
-        staged_files = []
 
         for file in files:
             if not file.filename.endswith(".xml"):
@@ -441,9 +384,6 @@ class XmlService:
                     await session.commit()
                     await session.refresh(existing)
 
-                    file_path = self.git.write_file(content_id=str(existing.id), filename=file.filename, content=content_str, system=metadata.get("system").lower())
-                    staged_files.append(file_path)
-
                     results.append({"filename": file.filename, "status": "updated", "id": existing.id})
                 else:
                     new_file = XmlFile(
@@ -458,21 +398,13 @@ class XmlService:
                     await session.commit()
                     await session.refresh(new_file)
 
-                    file_path = self.git.write_file(content_id=str(new_file.id), filename=file.filename, content=content_str, system=metadata.get("system").lower())
-                    staged_files.append(file_path)
-
                     results.append({"filename": file.filename, "status": "imported", "id": new_file.id})
 
             except Exception as e:
                 results.append({"filename": file.filename, "status": "error", "reason": str(e)})
 
-        # Commit sau khi import toàn bộ
-        if staged_files:
-            self.git.repo.index.add(staged_files)
-            self.git.repo.index.commit(f"Import XML files: {', '.join([os.path.basename(f) for f in staged_files])}")
-            self.git.push_all()
-
-        return {"results": results}
+        workflow_id = await self._enqueue_db_to_git_sync(client)
+        return {"results": results, "workflow_id": workflow_id}
 
     async def sync_git_to_db(self, session: AsyncSession):
         """
@@ -491,10 +423,7 @@ class XmlService:
         - Trả về:
             + Phản hồi thành công với danh sách các file đã được thêm mới (`[+]`) hoặc cập nhật (`[~]`) trong DB.
         """
-        await session.execute(delete(XmlFile))
-        await session.commit()
-
-        repo_path = self.git.repo_path
+        repo_path = get_git_service().repo_path
         synced = []
         for module in MODULE_CONFIGURATION_LIST:
             for fname in os.listdir(repo_path + "/" + module):
@@ -548,13 +477,109 @@ class XmlService:
         all_files = result.scalars().all()
 
         written = []
+        git = get_git_service()
         for record in all_files:
-            file_path = self.git.write_file(content_id=str(record.id), filename=record.filename, content=record.content, system=record.system.lower())
+            system = (record.system or record.filename.split("_")[0]).lower()
+            file_path = git.write_file(content_id=str(record.id), filename=record.filename, content=record.content, system=system)
             written.append(file_path)
 
         if written:
-            self.git.repo.index.add(written)
-            self.git.repo.index.commit("Đồng bộ từ DB → Git")
-            self.git.push_all()
+            git.repo.index.add(written)
+            git.repo.index.commit("Đồng bộ từ DB → Git")
+            git.push_all()
 
         return self.success_response("Đã sync DB → Git", {"written": [os.path.basename(p) for p in written]})
+
+    async def get_git_drift(self, session: AsyncSession = None):
+        git = get_git_service()
+        repo_files = git.list_repo_xml_files()
+
+        result = await session.execute(select(XmlFile))
+        records = result.scalars().all()
+        db_files = {
+            git.build_relative_path(record.filename, (record.system or record.filename.split("_")[0]).lower()): {
+                "filename": record.filename,
+                "content": (record.content or "").strip(),
+            }
+            for record in records
+        }
+
+        only_in_db = sorted([relative_path for relative_path in db_files if relative_path not in repo_files])
+        only_in_git = sorted([relative_path for relative_path in repo_files if relative_path not in db_files])
+        content_mismatches = sorted(
+            [
+                relative_path
+                for relative_path in db_files
+                if relative_path in repo_files and db_files[relative_path]["content"] != repo_files[relative_path]["content"].strip()
+            ]
+        )
+
+        db_only_by_content: dict[str, list[str]] = {}
+        git_only_by_content: dict[str, list[str]] = {}
+
+        for relative_path in only_in_db:
+            content = db_files[relative_path]["content"]
+            db_only_by_content.setdefault(content, []).append(relative_path)
+
+        for relative_path in only_in_git:
+            content = repo_files[relative_path]["content"].strip()
+            git_only_by_content.setdefault(content, []).append(relative_path)
+
+        moves: list[dict[str, str]] = []
+        for content, db_paths in db_only_by_content.items():
+            git_paths = git_only_by_content.get(content, [])
+            pair_count = min(len(db_paths), len(git_paths))
+            for index in range(pair_count):
+                moves.append(
+                    {
+                        "from": git_paths[index],
+                        "to": db_paths[index],
+                        "filename": db_files[db_paths[index]]["filename"],
+                    }
+                )
+
+        moved_to_paths = {item["to"] for item in moves}
+        moved_from_paths = {item["from"] for item in moves}
+
+        db_to_git = {
+            "create": [path for path in only_in_db if path not in moved_to_paths],
+            "update": content_mismatches,
+            "delete": [path for path in only_in_git if path not in moved_from_paths],
+            "move": moves,
+        }
+        git_to_db = {
+            "create": [path for path in only_in_git if path not in moved_from_paths],
+            "update": content_mismatches,
+            "delete": [path for path in only_in_db if path not in moved_to_paths],
+            "move": [{"from": item["to"], "to": item["from"], "filename": item["filename"]} for item in moves],
+        }
+
+        return self.success_response(
+            data={
+                "only_in_db": only_in_db,
+                "only_in_git": only_in_git,
+                "content_mismatches": content_mismatches,
+                "db_to_git": db_to_git,
+                "git_to_db": git_to_db,
+                "summary": {
+                    "db_to_git": {
+                        "create": len(db_to_git["create"]),
+                        "update": len(db_to_git["update"]),
+                        "delete": len(db_to_git["delete"]),
+                        "move": len(db_to_git["move"]),
+                    },
+                    "git_to_db": {
+                        "create": len(git_to_db["create"]),
+                        "update": len(git_to_db["update"]),
+                        "delete": len(git_to_db["delete"]),
+                        "move": len(git_to_db["move"]),
+                    },
+                },
+                "sync_needed": bool(only_in_db or only_in_git or content_mismatches),
+            }
+        )
+
+    async def _enqueue_db_to_git_sync(self, client: Client = None):
+        if client is None:
+            return None
+        return await enqueue_git_sync("db_to_git", client)

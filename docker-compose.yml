@@ -92,6 +92,7 @@ services:
             - temporal-network
         volumes:
             - .:/app
+            - /home/recollector/code/backend/odoo/custom-addons:/workspace/backend-addons
 
     worker:
         container_name: temporal-worker
@@ -108,11 +109,35 @@ services:
             - temporal-network
         volumes:
             - .:/app
+            - /home/recollector/code/backend/odoo/custom-addons:/workspace/backend-addons
         command:
             [
                 "sh",
                 "-c",
                 "PYTHONPATH=/app python -m api.migrate && PYTHONPATH=/app python -m temporal.workers.worker",
+            ]
+
+    git-worker:
+        container_name: temporal-git-worker
+        build:
+            context: .
+            dockerfile: Dockerfile
+        depends_on:
+            - temporal
+        env_file:
+            - .env
+        environment:
+            - TEMPORAL_ADDRESS=temporal:7233
+        networks:
+            - temporal-network
+        volumes:
+            - .:/app
+            - /home/recollector/code/backend/odoo/custom-addons:/workspace/backend-addons
+        command:
+            [
+                "sh",
+                "-c",
+                "PYTHONPATH=/app python -m temporal.workers.git_worker",
             ]
 
 networks:

@@ -15,6 +15,7 @@ import asyncio
 from temporalio.client import WorkflowHandle
 from ..utils import get_client
 import json
+from temporal.constants import DEFAULT_TASK_QUEUE
 
 CONFIGURATION = {
     "FE": {"workflow": FeCodeGenerationWorkflow, "extension": "js"},
@@ -141,7 +142,7 @@ async def start_raw_generate(template: List[dict], module: str = "FE", client: C
             CONFIGURATION[module]["workflow"].run,
             args=[template_contents, kw],
             id=workflow_id,
-            task_queue="default",
+            task_queue=DEFAULT_TASK_QUEUE,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Workflow failed to start: {str(e)}")
@@ -198,7 +199,7 @@ async def start_generate(template: List[UploadFile], module: str = "FE", client:
             CONFIGURATION[module]["workflow"].run,
             args=[template_contents, kw],
             id=workflow_id,
-            task_queue="default",
+            task_queue=DEFAULT_TASK_QUEUE,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Workflow failed to start: {str(e)}")
@@ -242,6 +243,17 @@ async def download_result(workflow_id: str, client: Client):
         zip_bytes = base64.b64decode(zip_b64)
         return StreamingResponse(content=BytesIO(zip_bytes), media_type="application/zip", headers={"Content-Disposition": 'attachment; filename="result.zip"'})
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def get_workflow_result(workflow_id: str, client: Client):
+    try:
+        handle = client.get_workflow_handle(workflow_id)
+        result = await handle.result()
+        if not isinstance(result, dict):
+            return {"code": 200, "status": "success", "data": {"result": result}}
+        return {"code": 200, "status": "success", "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

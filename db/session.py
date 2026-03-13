@@ -1,12 +1,9 @@
-from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-
-# Đường dẫn đến PostgreSQL
-DATABASE_URL = "postgresql+asyncpg://temporal:temporal@postgresql:5432/postgres"
+from config.configuration import DATABASE_URL, SQL_ECHO
 
 # Engine bất đồng bộ
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(DATABASE_URL, echo=SQL_ECHO)
 
 # Session dùng trong FastAPI
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

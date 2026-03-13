@@ -1,8 +1,12 @@
 # services/git_service.py
 
 import os
-from git import Repo, GitCommandError
+from functools import lru_cache
 from pathlib import Path
+
+from git import Repo
+
+from config.configuration import GIT_REPO_PATH
 
 
 class GitService:
@@ -73,6 +77,9 @@ class GitService:
 
         return file_path
 
+    def build_relative_path(self, filename: str, system: str) -> str:
+        return Path(system).joinpath(filename).as_posix()
+
     def commit_and_tag(self, file_path: str, message: str, tag_name: str = None):
         """
         Commit file đã thay đổi và tạo tag nếu cần.
@@ -90,3 +97,62 @@ class GitService:
         results = origin.push()
         for result in results:
             print("Push result:", result.summary, "-", result.flags)
+
+    def fetch(self):
+        self.repo.remote("origin").fetch()
+
+    def get_status(self) -> dict:
+        try:
+            staged_files = sorted({item.a_path for item in self.repo.index.diff("HEAD")})
+        except Exception:
+            staged_files = []
+        unstaged_files = sorted({item.a_path for item in self.repo.index.diff(None)})
+        untracked_files = sorted(self.repo.untracked_files)
+
+        ahead = 0
+        behind = 0
+        remote_error = None
+        try:
+            self.fetch()
+            tracking_branch = f"origin/{self.repo.active_branch.name}"
+            counts = self.repo.git.rev_list("--left-right", "--count", f"HEAD...{tracking_branch}").split()
+            ahead = int(counts[0])
+            behind = int(counts[1])
+        except Exception as exc:
+            remote_error = str(exc)
+
+        return {
+            "branch": self.repo.active_branch.name,
+            "dirty": self.repo.is_dirty(untracked_files=True),
+            "ahead": ahead,
+            "behind": behind,
+            "staged_files": staged_files,
+            "unstaged_files": unstaged_files,
+            "untracked_files": untracked_files,
+            "has_local_changes": bool(staged_files or unstaged_files or untracked_files),
+            "has_remote_changes": behind > 0,
+            "sync_needed": bool(staged_files or unstaged_files or untracked_files or behind > 0),
+            "remote_error": remote_error,
+        }
+
+    def list_repo_xml_files(self) -> dict[str, dict[str, str]]:
+        files: dict[str, dict[str, str]] = {}
+        for path in Path(self.repo_path).rglob("*.xml"):
+            if ".git" in path.parts:
+                continue
+            relative_path = path.relative_to(self.repo_path).as_posix()
+            files[relative_path] = {
+                "filename": path.name,
+                "relative_path": path.relative_to(self.repo_path).as_posix(),
+                "content": path.read_text(encoding="utf-8"),
+            }
+        return files
+
+
+@lru_cache(maxsize=1)
+def get_git_service() -> GitService:
+    remote_url = os.getenv("GIT_REPO_URL", "").strip()
+    token = os.getenv("GIT_ACCESS_TOKEN", "").strip()
+    if not remote_url:
+        raise ValueError("GIT_REPO_URL is not set")
+    return GitService(repo_path=GIT_REPO_PATH, remote_url=remote_url, token=token)

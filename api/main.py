@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .utils import sio
 from socketio import ASGIApp
 from .utils import set_client
+from config.configuration import TEMPORAL_ADDRESS
 
 # Global Temporal client
 client: Client = None
@@ -15,7 +16,7 @@ client: Client = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global client
-    client = await Client.connect("temporal:7233")
+    client = await Client.connect(TEMPORAL_ADDRESS)
     set_client(client)
     print("✅ Temporal client connected.")
     yield
@@ -37,7 +38,7 @@ fastapi_app.add_middleware(
 
 # Mount các router
 fastapi_app.include_router(generator_routes.router, prefix="/api/generator", tags=["generator"])
-# fastapi_app.include_router(git_routes.router, prefix="/api/git", tags=["git"])  # Bỏ comment nếu dùng
+fastapi_app.include_router(git_routes.router, prefix="/api/git", tags=["git"])
 fastapi_app.include_router(xml_routes.router, prefix="/api/xml", tags=["xml"])
 
 # Gói FastAPI app vào Socket.IO ASGI app

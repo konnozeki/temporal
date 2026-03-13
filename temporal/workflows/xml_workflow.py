@@ -1,17 +1,12 @@
 from temporalio import workflow
-from temporalio.common import RetryPolicy
 
 from ..activities.xml_generator import generate_xml
 import base64
 import zipfile
 import io
 from datetime import timedelta
-from db.session import async_session  # hoặc wherever bạn khai DB session
-import os
-from pathlib import Path
-from sqlalchemy import select
 from ..activities.db_writer import save_generated_xml
-import asyncio
+from ..activities.git_job_ops import request_git_sync
 
 
 @workflow.defn(sandboxed=False)
@@ -22,6 +17,7 @@ class XMLGenerationWorkflow:
         # await workflow.sleep(5)
         # Tạo buffer zip
         zip_buffer = io.BytesIO()
+        requires_git_sync = False
         try:
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 for file in template_contents:
@@ -40,9 +36,17 @@ class XMLGenerationWorkflow:
                         args=[xml_dict, kw.get("module", "categories")],
                         start_to_close_timeout=timedelta(seconds=60),
                     )
+                    requires_git_sync = True
                     for model_name, xml_string in xml_dict.items():
                         # Tạo tên file cho các tệp cần nén
                         zip_file.writestr(f"xml/{model_name}_schema.xml", xml_string)
+
+            if requires_git_sync:
+                await workflow.execute_activity(
+                    request_git_sync,
+                    "db_to_git",
+                    start_to_close_timeout=timedelta(seconds=30),
+                )
 
             # Lấy nội dung zip và trả về kết quả
             zip_buffer.seek(0)

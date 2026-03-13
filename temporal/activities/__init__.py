@@ -1,5 +1,6 @@
 from .fe_generator import *
 from .be_generator import *
+from .be_deployer import *
 from .xml_generator import *
 from .db_writer import *
 from .unit_test_generator import *
@@ -17,6 +18,7 @@ be_activities = [
     generate_controller,
     generate_route,
     generate_view,
+    deploy_backend_artifacts,
 ]
 xml_activities = [
     generate_xml,
