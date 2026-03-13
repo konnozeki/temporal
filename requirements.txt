@@ -10,3 +10,4 @@ asyncpg
 openpyxl
 python-socketio
 psycopg2
+black
